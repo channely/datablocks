@@ -2,9 +2,9 @@
  * Log console and command line. Console output from the JS sandbox is forwarded through
  * console-feed; supported commands are `help`, `intro`, `stats`, and `clear`.
  */
-import React, { memo, useState } from "react";
+import { memo, useEffect } from "react";
 import { Box, Flex, Input, useTheme } from "@chakra-ui/react";
-import { Console, Decode, Hook } from "console-feed";
+import { Console, Decode, Hook, Unhook } from "console-feed";
 import useStore from "../store";
 import execution from "../lib/execution";
 import dataStore from "../lib/dataStore";
@@ -24,12 +24,12 @@ const collectStats = () => {
 
 const ConsoleComponent = memo(({ logs, addLogs }) => {
   const theme = useTheme();
-  useState(() => {
-    if (execution.iFrame) {
-      Hook(execution.iFrame.contentWindow.console, (log) => addLogs(Decode(log)));
-    }
-    return null;
-  });
+  // Mirror the execution iframe's console into the terminal for as long as it is mounted.
+  useEffect(() => {
+    if (!execution.iFrame) return undefined;
+    const hooked = Hook(execution.iFrame.contentWindow.console, (log) => addLogs(Decode(log)));
+    return () => Unhook(hooked);
+  }, [addLogs]);
   return (
     <Box>
       <Console styles={{ BASE_FONT_FAMILY: theme.fonts.mono }} logs={logs} variant="dark" />

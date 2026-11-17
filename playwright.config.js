@@ -2,9 +2,10 @@
  * End-to-end tests run against the production build served by `vite preview`, so they exercise
  * the same sub-path (`/datablocks/`) and code splitting as GitHub Pages.
  *
- * Specs tagged `@perf` measure the large benchmark flow; CI skips them (`--grep-invert @perf`)
- * because shared runners are too noisy for timing budgets. Run them locally with
- * `npm run e2e -- --grep @perf`.
+ * Specs tagged `@perf` measure the large benchmark flow. They live in their own project that
+ * depends on the functional one, so they never share the CPU with parallel workers. CI skips
+ * them (`--grep-invert @perf`) because shared runners are too noisy for timing budgets. Run
+ * them alone locally with `npm run e2e -- --project perf --no-deps`.
  */
 import { defineConfig, devices } from "@playwright/test";
 
@@ -29,6 +30,13 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      testIgnore: /perf\.spec\.js/,
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1600, height: 1000 } },
+    },
+    {
+      name: "perf",
+      testMatch: /perf\.spec\.js/,
+      dependencies: ["chromium"],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1600, height: 1000 } },
     },
   ],

@@ -2,7 +2,6 @@
  * Header dropdown menu. Notifies the store while open so the canvas can block interactions
  * beneath the menu layer.
  */
-import React from "react";
 import { Button, Menu, MenuButton, MenuItem, MenuList } from "@chakra-ui/react";
 import useStore from "../store";
 

@@ -2,7 +2,7 @@
  * React Flow canvas. All node/edge state lives in the zustand store; this component only
  * forwards changes, selection, and canvas interactions (context-menu library, minimap, layout).
  */
-import React, { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { Box, Flex, useTheme } from "@chakra-ui/react";
 import ReactFlow, {
   Background,

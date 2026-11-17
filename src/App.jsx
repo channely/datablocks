@@ -3,7 +3,7 @@
  * keyboard shortcuts. The standalone app restores the last session and autosaves edits; when
  * `data` is provided by an embedder it is loaded instead and autosave is skipped.
  */
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Box, Button, Flex } from "@chakra-ui/react";
 import { useDropzone } from "react-dropzone";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -121,7 +121,9 @@ const AppInner = ({
   const [selectedData, selectedType] = useData(selectedCurrent);
   const { setViewport, viewportInitialized } = useReactFlow();
   const { save, clear, openFlows, saveAs } = useFlowCommands();
-  const [restoring, setRestoring] = useState(!data);
+  // Embedders pass `data` instead of restoring the autosaved session.
+  const [restorePending, setRestorePending] = useState(!data);
+  const restoring = restorePending && !data;
   const restoredRef = useRef(false);
 
   useEffect(
@@ -135,7 +137,6 @@ const AppInner = ({
   useEffect(() => {
     if (data?.flow && viewportInitialized) {
       setFlowData(data.flow[0]);
-      setRestoring(false);
     }
   }, [data, viewportInitialized, setFlowData]);
 
@@ -145,7 +146,7 @@ const AppInner = ({
     restoredRef.current = true;
     restoreSession()
       .catch(() => {})
-      .finally(() => setRestoring(false));
+      .finally(() => setRestorePending(false));
   }, [data, viewportInitialized, restoreSession]);
 
   useEffect(() => {

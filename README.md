@@ -107,7 +107,7 @@ npm run test:coverage  # coverage report; fails below 80% lines for src/lib and 
 npx playwright install chromium   # once, before the first E2E run
 npm run e2e            # end-to-end tests (Playwright, builds and serves on :4173/datablocks/)
 npm run e2e:ui         # Playwright UI mode
-npm run e2e -- --grep @perf       # performance budgets on the generated benchmark flow
+npm run e2e -- --project perf --no-deps   # performance budgets on the benchmark flow
 ```
 
 Unit tests live next to the code (`src/**/*.test.js`) and cover the pure helpers, flow

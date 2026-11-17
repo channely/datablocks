@@ -1,6 +1,7 @@
 /**
  * Performance budgets on the large benchmark flow (~30 nodes, 20k rows). Budgets are the v1.3
- * measurements × 1.5. Tagged @perf: CI skips these, run them with `npm run e2e -- --grep @perf`.
+ * measurements × 1.5. Tagged @perf: CI skips these; run them alone with
+ * `npm run e2e -- --project perf --no-deps`.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";

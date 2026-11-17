@@ -41,12 +41,12 @@ export default function useAutosave({ enabled = true, delay = DEFAULT_DELAY } = 
   const autosave = useStore((state) => state.autosave);
   const flushAutosave = useStore((state) => state.flushAutosave);
   const addLogs = useStore((state) => state.addLogs);
-  const pending = useRef(null);
-  const channel = useRef(null);
+  const pendingRef = useRef(null);
+  const channelRef = useRef(null);
 
   useEffect(() => {
     if (!enabled) return undefined;
-    channel.current = createTabChannel(() =>
+    channelRef.current = createTabChannel(() =>
       addLogs({
         method: "warn",
         data: [
@@ -55,28 +55,28 @@ export default function useAutosave({ enabled = true, delay = DEFAULT_DELAY } = 
       }),
     );
     return () => {
-      channel.current?.close();
-      channel.current = null;
+      channelRef.current?.close();
+      channelRef.current = null;
     };
   }, [enabled, addLogs]);
 
   useEffect(() => {
     if (!enabled) return undefined;
     const write = () => {
-      pending.current = null;
+      pendingRef.current = null;
       autosave()
         .then((flow) => {
-          if (flow) channel.current?.announce();
+          if (flow) channelRef.current?.announce();
         })
         .catch(() => {});
     };
-    pending.current = setTimeout(write, delay);
+    pendingRef.current = setTimeout(write, delay);
     // IndexedDB may not commit during unload, so the flush also writes a synchronous copy.
     const flush = () => {
-      if (pending.current === null) return;
-      clearTimeout(pending.current);
-      pending.current = null;
-      if (flushAutosave()) channel.current?.announce();
+      if (pendingRef.current === null) return;
+      clearTimeout(pendingRef.current);
+      pendingRef.current = null;
+      if (flushAutosave()) channelRef.current?.announce();
     };
     const onVisibility = () => {
       if (document.visibilityState === "hidden") flush();
@@ -84,8 +84,8 @@ export default function useAutosave({ enabled = true, delay = DEFAULT_DELAY } = 
     window.addEventListener("pagehide", flush);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      clearTimeout(pending.current);
-      pending.current = null;
+      clearTimeout(pendingRef.current);
+      pendingRef.current = null;
       window.removeEventListener("pagehide", flush);
       document.removeEventListener("visibilitychange", onVisibility);
     };

@@ -2,7 +2,7 @@
  * Bottom output panel. Lazily selects a renderer for the selected node's detected type and
  * exposes the matching export formats.
  */
-import React, { lazy, memo, Suspense, useMemo } from "react";
+import { lazy, memo, Suspense } from "react";
 import {
   Box,
   Flex,
@@ -72,30 +72,24 @@ export const OutputHeader = ({ data, type }) => {
   );
 };
 
-const getView = (type) => {
-  switch (type) {
-    case TYPES.DATASET:
-      return GridView;
-    case TYPES.TOPOJSON:
-    case TYPES.GEOJSON:
-      return GeoView;
-    case TYPES.ARRAY:
-    case TYPES.OBJECT:
-      return JsonTreeView;
-    case TYPES.NUMBER:
-    case TYPES.STRING:
-    case TYPES.DATE:
-    case TYPES.BOOLEAN:
-    case TYPES.UNDEFINED:
-    case TYPES.NULL:
-      return SimpleTypeView;
-    default:
-      return () => null;
-  }
+const EmptyView = () => null;
+
+const VIEWS = {
+  [TYPES.DATASET]: GridView,
+  [TYPES.TOPOJSON]: GeoView,
+  [TYPES.GEOJSON]: GeoView,
+  [TYPES.ARRAY]: JsonTreeView,
+  [TYPES.OBJECT]: JsonTreeView,
+  [TYPES.NUMBER]: SimpleTypeView,
+  [TYPES.STRING]: SimpleTypeView,
+  [TYPES.DATE]: SimpleTypeView,
+  [TYPES.BOOLEAN]: SimpleTypeView,
+  [TYPES.UNDEFINED]: SimpleTypeView,
+  [TYPES.NULL]: SimpleTypeView,
 };
 
 const DataView = memo(({ data, type, dataId }) => {
-  const View = useMemo(() => getView(type), [type]);
+  const View = VIEWS[type] ?? EmptyView;
   return (
     <>
       <OutputHeader data={data} type={type} />

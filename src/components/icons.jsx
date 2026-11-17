@@ -1,5 +1,4 @@
 /** Inline SVG icon set. Icons inherit `currentColor` and accept standard SVG props. */
-import React from "react";
 
 const Svg = ({ viewBox = "0 0 24 24", children, ...props }) => (
   <svg

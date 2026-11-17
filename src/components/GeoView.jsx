@@ -5,7 +5,7 @@
  * VITE_MAPBOX_TOKEN / VITE_MAPBOX_STYLE and restrict your own token by domain. Map rendering
  * requires network access to Mapbox; the table toggle remains usable offline.
  */
-import React, { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Button } from "@chakra-ui/react";
 import MapGL, { Layer, Source, WebMercatorViewport } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";

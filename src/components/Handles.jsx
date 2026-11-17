@@ -3,7 +3,6 @@
  * always accept a connection; `useInputData` then marks the edge as invalid when needed.
  * Connected handles use the hover color.
  */
-import React from "react";
 import { Handle, Position } from "react-flow-renderer";
 import { useTheme } from "@chakra-ui/react";
 import useStore from "../store";

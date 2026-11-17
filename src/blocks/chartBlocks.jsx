@@ -2,7 +2,7 @@
  * Vega chart blocks. Each chart consumes a dataset, keeps its column selection in node data,
  * and forwards the input dataset downstream unchanged.
  */
-import React, { Suspense, lazy, useCallback, useEffect, useMemo } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo } from "react";
 import { Box, Checkbox, Flex, FormLabel, useTheme } from "@chakra-ui/react";
 import useStore from "../store";
 import useInputData from "../hooks/useInputData";

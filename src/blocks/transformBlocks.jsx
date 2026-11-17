@@ -5,7 +5,7 @@
  * `updateNodeData` or `useUpdateNodeCurrent`. The Javascript block executes user code through
  * `lib/execution`; geocoding sends the user-supplied key to the selected provider.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Button, Flex, FormLabel, Input, Select } from "@chakra-ui/react";
 import { Handle, Position } from "react-flow-renderer";
 import orderBy from "lodash-es/orderBy";
@@ -563,6 +563,8 @@ const RenameColumnsComponent = ({ id, data }) => {
     <Flex width="250px" position="relative" textAlign="left" flexDirection="column">
       <Box p={2}>
         {inputs.map((input, index) => (
+          // Rename rows are positional (no stable id); index keys match that model.
+          // eslint-disable-next-line @eslint-react/no-array-index-key
           <Flex key={`select-${index}`} alignItems="flex-start">
             <Box width="119px" marginRight="10px">
               <Select
@@ -618,6 +620,8 @@ const Code = ({ code }) => (
     color="#6272a4"
     lineHeight={1.2}
     paddingLeft="3px"
+    // highlight.js escapes the source text; its output only adds span markup.
+    // eslint-disable-next-line @eslint-react/dom-no-dangerously-set-innerhtml
     dangerouslySetInnerHTML={{
       __html: hljs.highlight(code, { language: "javascript" }).value,
     }}
@@ -844,13 +848,14 @@ const GeocodeComponent = ({ id, data }) => {
     [id, updateNodeData],
   );
 
+  const geocoded = Boolean(data.current?.[0]?.latitude || data.current?.[0]?.longitude);
   const onColumnChangeData = useCallback(
     ({ data: newData, column }) => {
-      if (!data.current?.[0]?.latitude && !data.current?.[0]?.longitude) {
+      if (!geocoded) {
         updateNodeData({ id, data: { current: newData, column }, transient: true });
       }
     },
-    [id, data, updateNodeData],
+    [id, geocoded, updateNodeData],
   );
 
   const onProviderChange = useCallback(

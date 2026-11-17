@@ -3,7 +3,7 @@
  * `updateNodeData({ id, data: { current } })`; the store stores the value in the DataStore and
  * keeps only an id on the node. Input blocks have no target handle.
  */
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Flex, FormLabel, Input, Select, Textarea } from "@chakra-ui/react";
 import { useDropzone } from "react-dropzone";
 import useStore from "../store";
@@ -153,18 +153,18 @@ const ExampleDataComponent = ({ id, data }) => {
   const [index, setIndex] = useState(data.index || 0);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     const example = EXAMPLES[index];
-    fetch(example.file)
+    fetch(example.file, { signal: controller.signal })
       .then((response) => response.text())
       .then((text) => {
-        if (cancelled) return;
         const result = example.file.endsWith(".csv") ? parseCsv(text) : parseJson(text);
         if (!result.error) updateNodeData({ id, data: { current: result.data } });
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") throw error;
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [index, id, updateNodeData]);
 
   return (

@@ -2,7 +2,7 @@
  * Geo blocks. Most are thin wrappers around `lib/geo` that publish the transformed GeoJSON;
  * Buffer and Simplify also keep their parameters in node data.
  */
-import React, { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { Box, Button, FormLabel, Input, Select, Slider } from "@chakra-ui/react";
 import { feature as topojsonFeature } from "topojson-client";
 import { scalePow } from "d3-scale";

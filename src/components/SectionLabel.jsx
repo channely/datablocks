@@ -1,5 +1,4 @@
 /** Uppercase section heading used in panels and the library. */
-import React from "react";
 import { Box } from "@chakra-ui/react";
 
 const SectionLabel = ({ children, ...props }) => (

@@ -4,7 +4,7 @@
  * Markdown is rendered from user input, so the converted HTML is sanitized with DOMPurify
  * before it reaches `dangerouslySetInnerHTML`. Keep that boundary if the renderer changes.
  */
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Button, Flex, Textarea } from "@chakra-ui/react";
 import { min, max, mean, median, sum } from "d3-array";
 import DOMPurify from "dompurify";
@@ -164,6 +164,8 @@ export const Markdown = ({ id, data }) => {
           value={inputValue}
         />
       ) : (
+        // `html` comes from sanitizeHtml (DOMPurify) above.
+        // eslint-disable-next-line @eslint-react/dom-no-dangerously-set-innerhtml
         <Box lineHeight={1.4} sx={MARKDOWN_STYLES} dangerouslySetInnerHTML={{ __html: html }} />
       )}
       <Flex

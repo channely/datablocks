@@ -2,7 +2,7 @@
  * Object/array inspector. Uses react-json-tree with its default Solarized theme, matching the
  * reference demo's output rendering.
  */
-import React, { memo } from "react";
+import { memo } from "react";
 import { Box } from "@chakra-ui/react";
 import { JSONTree } from "react-json-tree";
 

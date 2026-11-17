@@ -2,7 +2,7 @@
  * Application header: logo, File/View/Help menus, and the inline flow title editor. Save and
  * Clear are hidden in demo mode, matching the reference behavior.
  */
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Box, Button, Flex, Input } from "@chakra-ui/react";
 import { useReactFlow } from "react-flow-renderer";
 import useStore from "../store";

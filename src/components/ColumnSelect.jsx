@@ -2,7 +2,7 @@
  * Column picker shared by most blocks. Optionally renders its own target handle (`fromHandle`)
  * and reports dropped connections through `onChangeData` so blocks can recompute immediately.
  */
-import React, { memo, useCallback, useEffect, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo } from "react";
 import { Box, Select, useTheme } from "@chakra-ui/react";
 import { Handle, Position } from "react-flow-renderer";
 import { getColumnNames } from "../lib/types";

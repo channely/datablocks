@@ -5,7 +5,7 @@
  * rename, duplicate, export, delete, and import. Everything stays on the device; there is no
  * backend or account. Import validation and error reporting live in the store/commands layer.
  */
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -143,21 +143,25 @@ const FlowLibraryModal = () => {
   const [estimate, setEstimate] = useState(null);
   const fileInputRef = useRef(null);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  // State is only set in promise callbacks, so the mount effect does not render twice.
+  const load = useCallback(() => {
     getStorageEstimate().then(setEstimate);
-    try {
-      setFlows(await listFlows());
-    } catch (error) {
-      addLogs({ method: "error", data: ["Loading saved flows failed.", error.message] });
-    } finally {
-      setLoading(false);
-    }
+    return listFlows()
+      .then(setFlows)
+      .catch((error) =>
+        addLogs({ method: "error", data: ["Loading saved flows failed.", error.message] }),
+      )
+      .finally(() => setLoading(false));
   }, [listFlows, addLogs]);
 
+  const refresh = useCallback(() => {
+    setLoading(true);
+    return load();
+  }, [load]);
+
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    load();
+  }, [load]);
 
   const open = async (id) => {
     try {

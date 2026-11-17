@@ -2,7 +2,7 @@
  * Custom bezier edge with a wider invisible hit area and a circular label/remove button at the
  * midpoint. Animated edges render no label; invalid edges show ⚠.
  */
-import React, { useCallback } from "react";
+import { useCallback } from "react";
 import { getBezierPath, getEdgeCenter } from "react-flow-renderer";
 import useStore from "../store";
 

@@ -2,7 +2,7 @@
  * Virtualized dataset table. The first row is a sortable header; a `color` column is rendered
  * as a swatch so Colorize results are visible in the grid.
  */
-import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { Flex } from "@chakra-ui/react";
 import { AutoSizer, MultiGrid } from "react-virtualized";
 import sortBy from "lodash-es/sortBy";

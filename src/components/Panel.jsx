@@ -1,5 +1,4 @@
 /** Fixed-height panel/header strip used throughout the layout. */
-import React from "react";
 import { Flex } from "@chakra-ui/react";
 
 const border = (flag) => (flag ? "1px solid" : "none");

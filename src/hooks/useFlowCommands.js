@@ -22,6 +22,7 @@ export const useFlowCommands = () => {
   const startNewFlow = useStore((state) => state.newFlow);
   const setModal = useStore((state) => state.setModal);
   const addLogs = useStore((state) => state.addLogs);
+  const recordHistory = useStore((state) => state.recordHistory);
   const flowId = useStore((state) => state.id);
   const flowTitle = useStore((state) => state.title);
   const store = useStoreApi();
@@ -29,11 +30,12 @@ export const useFlowCommands = () => {
 
   const clear = useCallback(() => {
     if (viewportInitialized && window.confirm("Are you sure?")) {
+      recordHistory();
       setElements([]);
       setViewport({ x: 0, y: 0, zoom: 1 });
       clearLogs();
     }
-  }, [viewportInitialized, setElements, setViewport, clearLogs]);
+  }, [viewportInitialized, recordHistory, setElements, setViewport, clearLogs]);
 
   /**
    * Embedders may still provide `onFlowSaveCallback`; in that case the canvas is handed to them
@@ -155,15 +157,18 @@ const layoutElements = (elements) => {
 
 export const useAutoLayout = () => {
   const setElements = useStore((state) => state.setElements);
+  const recordHistory = useStore((state) => state.recordHistory);
   const store = useStoreApi();
   return useCallback(() => {
     const { nodeInternals, edges } = store.getState();
+    recordHistory();
     setElements(layoutElements([...Array.from(nodeInternals.values()), ...edges]));
-  }, [setElements, store]);
+  }, [recordHistory, setElements, store]);
 };
 
 export const useLoadAllNodes = () => {
   const setElements = useStore((state) => state.setElements);
+  const recordHistory = useStore((state) => state.recordHistory);
   const { setViewport, viewportInitialized } = useReactFlow();
   return useCallback(() => {
     if (!viewportInitialized) return;
@@ -173,7 +178,8 @@ export const useLoadAllNodes = () => {
       type: block.type,
       position: { x: 0, y: 0 },
     }));
+    recordHistory();
     setElements(nodes);
     setViewport({ x: 0, y: 0, zoom: 1 });
-  }, [viewportInitialized, setElements, setViewport]);
+  }, [viewportInitialized, recordHistory, setElements, setViewport]);
 };

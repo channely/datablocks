@@ -52,7 +52,12 @@ const StatsComponent = ({ id, data }) => {
     [id, updateNodeData],
   );
   const onChangeData = useCallback(
-    (value) => updateNodeData({ id, data: { current: value.data, column: value.column } }),
+    (value) =>
+      updateNodeData({
+        id,
+        data: { current: value.data, column: value.column },
+        transient: true,
+      }),
     [id, updateNodeData],
   );
 

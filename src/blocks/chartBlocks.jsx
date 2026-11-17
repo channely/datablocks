@@ -38,6 +38,7 @@ const useColumnSync = ({ id, current, valid, xColumn, yColumn, updateNodeData })
         updateNodeData({
           id,
           data: { xColumn: nextX || xColumn, yColumn: nextY || yColumn },
+          transient: true,
         });
       }
     }
@@ -175,6 +176,10 @@ const HistogramComponent = ({ id, data, color }) => {
     (value) => updateNodeData({ id, data: { column: value.column || value } }),
     [id, updateNodeData],
   );
+  const onChangeData = useCallback(
+    ({ column }) => updateNodeData({ id, data: { column }, transient: true }),
+    [id, updateNodeData],
+  );
 
   useUpdateNodeCurrent(id, current);
 
@@ -182,7 +187,7 @@ const HistogramComponent = ({ id, data, color }) => {
     <Box p={2} minWidth={200} position="relative" textAlign="left">
       <ColumnSelect
         onChange={onChange}
-        onChangeData={onChange}
+        onChangeData={onChangeData}
         fromHandle={id}
         color={color}
         sx={{ mb: 1 }}

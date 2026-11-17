@@ -126,7 +126,7 @@ const FilterComponent = ({ id, data }) => {
         const condition = CONDITIONS.find((condition) => condition.id === conditionId);
         next = newData.filter((row) => condition.test(row[newColumn], conditionValue));
       }
-      updateNodeData({ id, data: { current: next, column: newColumn } });
+      updateNodeData({ id, data: { current: next, column: newColumn }, transient: true });
     },
     [id, updateNodeData, conditionId, conditionValue],
   );
@@ -243,6 +243,7 @@ const MergeComponent = ({ id, data, color }) => {
       updateNodeData({
         id,
         data: { ...result, baseData: newData, baseColumn: column },
+        transient: true,
       });
     },
     [id, insertData, insertColumn, baseType, updateNodeData],
@@ -262,6 +263,7 @@ const MergeComponent = ({ id, data, color }) => {
       updateNodeData({
         id,
         data: { ...result, insertData: newData, insertColumn: column },
+        transient: true,
       });
     },
     [baseData, baseColumn, baseType, id, updateNodeData],
@@ -316,7 +318,7 @@ const GroupComponent = ({ id, data, color }) => {
   const onChangeData = useCallback(
     ({ data: newData, column }) => {
       const grouped = groupBy(newData, (row) => row[column]);
-      updateNodeData({ id, data: { current: grouped, column } });
+      updateNodeData({ id, data: { current: grouped, column }, transient: true });
     },
     [id, updateNodeData],
   );
@@ -369,9 +371,17 @@ const SliceComponent = ({ id, data }) => {
     if (valid) {
       const start = startIndex ?? 0;
       const end = endIndex === "" ? input.length : endIndex;
-      updateNodeData({ id, data: { current: input.slice(start, end), endIndex: end } });
+      updateNodeData({
+        id,
+        data: { current: input.slice(start, end), endIndex: end },
+        transient: true,
+      });
     } else {
-      updateNodeData({ id, data: { current: null, startIndex: 0, endIndex: "" } });
+      updateNodeData({
+        id,
+        data: { current: null, startIndex: 0, endIndex: "" },
+        transient: true,
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, input, valid, updateNodeData]);
@@ -442,7 +452,7 @@ const SortComponent = ({ id, data, color }) => {
   const onChangeData = useCallback(
     ({ data: newData, column: newColumn }) => {
       const sorted = orderBy(newData, [newColumn], [order]);
-      updateNodeData({ id, data: { current: sorted, column: newColumn } });
+      updateNodeData({ id, data: { current: sorted, column: newColumn }, transient: true });
     },
     [id, updateNodeData, order],
   );
@@ -485,6 +495,7 @@ const RenameColumnsComponent = ({ id, data }) => {
       updateNodeData({
         id,
         data: { current: input, inputs: [{ old: columns[0], new: null }] },
+        transient: true,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -716,6 +727,7 @@ const JsComponent = ({ id, data }) => {
         current: result.result,
         code: await formatCode(code),
       },
+      transient: true,
     });
     if (result.logs && result.logs.length) addLogs(result.logs);
   }, [a, addLogs, b, id, updateNodeData, code]);
@@ -821,7 +833,7 @@ const GeocodeComponent = ({ id, data }) => {
   const onColumnChangeData = useCallback(
     ({ data: newData, column }) => {
       if (!data.current?.[0]?.latitude && !data.current?.[0]?.longitude) {
-        updateNodeData({ id, data: { current: newData, column } });
+        updateNodeData({ id, data: { current: newData, column }, transient: true });
       }
     },
     [id, data, updateNodeData],

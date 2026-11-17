@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions use
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] — 2026-11-17
+
+### Added
+
+- Undo/redo for canvas edits (`Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z`, and **View → Undo/Redo**),
+  covering node/edge creation and deletion, moving nodes, and block settings.
+- History entries reuse the flow serialization format, so deleted payloads are restored intact;
+  the stack keeps the last 100 steps and is cleared when a flow is loaded, created, or imported.
+
+### Fixed
+
+- Repeated edits on one node (typing, sliders) coalesce into a single undo step.
+- Deleting a node removes it and its connections in one undo step.
+- Derived data updates and the column auto-selection effect no longer create phantom history
+  entries when a flow loads.
+
 ## [1.1.0] — 2026-11-17
 
 ### Added

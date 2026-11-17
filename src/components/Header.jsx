@@ -162,6 +162,8 @@ const HeaderTools = ({ onFlowTitleChange }) => {
   const loadFlow = useStore((state) => state.loadFlow);
   const saveStatus = useStore((state) => state.saveStatus);
   const lastSavedAt = useStore((state) => state.lastSavedAt);
+  const undo = useStore((state) => state.undo);
+  const redo = useStore((state) => state.redo);
   const { zoomIn, zoomOut, zoomTo, fitView } = useReactFlow();
   const { save, saveAs, openFlows, newFlow, exportFlow, importFlowFile, clear } = useFlowCommands();
   const loadAllNodes = useLoadAllNodes();
@@ -204,6 +206,8 @@ const HeaderTools = ({ onFlowTitleChange }) => {
         )}
         <Dropdown
           items={[
+            { label: "Undo", onSelect: () => undo() },
+            { label: "Redo", onSelect: () => redo() },
             { label: "Auto Layout Nodes", onSelect: autoLayout },
             { label: "Fit View", onSelect: fitView },
             {

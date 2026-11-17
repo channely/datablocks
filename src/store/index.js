@@ -24,7 +24,12 @@ import { applyEdgeChanges, applyNodeChanges, isEdge, isNode } from "react-flow-r
 import execution from "../lib/execution";
 import dataStore from "../lib/dataStore";
 import { getFlowRect } from "../lib/download";
-import { DEFAULT_TITLE, deserializeFlow, serializeFlow } from "../lib/flowSerialization";
+import {
+  DEFAULT_TITLE,
+  FLOW_VERSION,
+  deserializeFlow,
+  serializeFlow,
+} from "../lib/flowSerialization";
 
 let logId = 0;
 
@@ -122,6 +127,74 @@ const snapshot = (state, overrides = {}) => {
  */
 let loadGeneration = 0;
 
+const HISTORY_LIMIT = 100;
+/** A burst of edits on the same node (typing, slider) becomes a single undo step. */
+const HISTORY_COALESCE_MS = 600;
+
+let lastHistoryKey = null;
+let lastHistoryAt = 0;
+/** React Flow reports edge removals before node removals for one delete gesture. */
+const REMOVAL_COALESCE_MS = 150;
+let lastRemovalAt = 0;
+/** Pre-drag snapshot; committed on drag end only when a node actually moved. */
+let dragBaseline = null;
+
+const resetHistoryTracking = () => {
+  lastHistoryKey = null;
+  lastHistoryAt = 0;
+  lastRemovalAt = 0;
+  dragBaseline = null;
+};
+
+/**
+ * History entries reuse the flow serialization format, so `data.current` payloads are pinned by
+ * reference while editing and re-inserted through `dataStore.set` on restore.
+ */
+const captureHistory = (state) =>
+  serializeFlow({ nodes: state.nodes, edges: state.edges }).elements;
+
+const pushHistoryEntry = (elements) => {
+  useStore.setState((state) => ({
+    history: {
+      past: state.history.past.concat([elements]).slice(-HISTORY_LIMIT),
+      future: [],
+    },
+  }));
+};
+
+/**
+ * A single delete gesture can arrive as two change batches (connected edges, then nodes).
+ * Record the pre-gesture state once so undo restores node and edges together.
+ */
+const recordRemovalHistory = (state) => {
+  const now = Date.now();
+  if (now - lastRemovalAt < REMOVAL_COALESCE_MS) return;
+  lastRemovalAt = now;
+  lastHistoryKey = null;
+  lastHistoryAt = 0;
+  pushHistoryEntry(captureHistory(state));
+};
+
+/**
+ * Swap the canvas for a historical snapshot. Payloads that only the replaced state referenced are
+ * released; snapshots keep their own references, so undoing a delete restores the data.
+ */
+const applyHistorySnapshot = (elements) => {
+  const flow = deserializeFlow({ version: FLOW_VERSION, elements });
+  const { nodes, edges } = splitFlow(flow);
+  const state = useStore.getState();
+  const used = new Set(
+    nodes.map((node) => node.data?.current).filter((current) => typeof current === "string"),
+  );
+  state.nodes
+    .map((node) => node.data?.current)
+    .filter((current) => typeof current === "string")
+    .forEach((current) => {
+      if (!used.has(current)) dataStore.remove(current);
+    });
+  useStore.setState({ nodes, edges, selectedNode: null, selectedNodeId: null });
+};
+
 /** Replace editor contents from a deserialized flow (edges are deferred like React Flow expects). */
 const applyFlow = (flow, meta = {}) => {
   const { nodes, edges } = splitFlow(flow);
@@ -135,6 +208,7 @@ const applyFlow = (flow, meta = {}) => {
   state.setElements(nodes);
   state.setFlowTransform(flow.viewport);
   state.selectNode(null);
+  state.clearHistory();
   const generation = ++loadGeneration;
   // Edges are added after the nodes have mounted; mirrors the reference loading behavior.
   setTimeout(() => {
@@ -199,11 +273,50 @@ const flowStore = (set, get) => ({
   selectedNodeId: null,
   selectedNode: null,
   codeEditorFocus: false,
+  history: { past: [], future: [] },
   setTitle: (title) => {
     const next = (title || "").trim();
     if (next) set({ title: next });
   },
+  /** Record the canvas before an edit. Repeated edits on one node coalesce into one step. */
+  recordHistory: (actionKey = null) => {
+    const now = Date.now();
+    if (actionKey && actionKey === lastHistoryKey && now - lastHistoryAt < HISTORY_COALESCE_MS) {
+      lastHistoryAt = now;
+      return false;
+    }
+    pushHistoryEntry(captureHistory(get()));
+    lastHistoryKey = actionKey;
+    lastHistoryAt = now;
+    return true;
+  },
+  undo: () => {
+    const { history } = get();
+    if (!history.past.length) return false;
+    const past = history.past.slice();
+    const elements = past.pop();
+    const future = [captureHistory(get()), ...history.future];
+    resetHistoryTracking();
+    applyHistorySnapshot(elements);
+    set({ history: { past, future } });
+    return true;
+  },
+  redo: () => {
+    const { history } = get();
+    if (!history.future.length) return false;
+    const [elements, ...future] = history.future;
+    const past = history.past.concat([captureHistory(get())]).slice(-HISTORY_LIMIT);
+    resetHistoryTracking();
+    applyHistorySnapshot(elements);
+    set({ history: { past, future } });
+    return true;
+  },
+  clearHistory: () => {
+    resetHistoryTracking();
+    set({ history: { past: [], future: [] } });
+  },
   addElement: (element) => {
+    get().recordHistory();
     if (element.target) {
       const edges = get().edges.filter(
         (e) => !(e.target === element.target && e.targetHandle === element.targetHandle),
@@ -233,7 +346,14 @@ const flowStore = (set, get) => ({
     };
     return addElement(node);
   },
-  updateNodeData: ({ id, data = {} }) => {
+  /**
+   * Patch node data. Derived results (`current` only) are excluded from history; `transient`
+   * marks effect-driven writes, such as auto-fills when an upstream dataset changes.
+   */
+  updateNodeData: ({ id, data = {}, transient = false }) => {
+    if (!transient && Object.keys(data).some((key) => key !== "current")) {
+      get().recordHistory(`update:${id}`);
+    }
     const nodes = get().nodes.map((node) => {
       if (node.id === id) {
         if (Object.prototype.hasOwnProperty.call(data, "current")) {
@@ -295,6 +415,7 @@ const flowStore = (set, get) => ({
       zoom: flow?.viewport?.zoom || flow?.zoom || 1,
     });
     state.selectNode(null);
+    state.clearHistory();
     const generation = ++loadGeneration;
     setTimeout(() => {
       if (generation !== loadGeneration) return;
@@ -465,6 +586,7 @@ const flowStore = (set, get) => ({
     });
     get().setElements([]);
     get().setFlowTransform({ x: 0, y: 0, zoom: 1 });
+    get().clearHistory();
   },
   /**
    * Serialize a flow for download. Without an id (or for the flow currently open) the live
@@ -488,6 +610,8 @@ const flowStore = (set, get) => ({
   },
   removeElements: (elements) => {
     const ids = elements.map((e) => e.id);
+    recordRemovalHistory(get());
+    dragBaseline = null;
     const { nodes, edges, selectedNodeId } = get();
     const remaining = nodes.filter((n) => !ids.includes(n.id));
     const removedCurrents = nodes
@@ -503,7 +627,9 @@ const flowStore = (set, get) => ({
     });
     set({
       nodes: remaining,
-      edges: edges.filter((e) => !ids.includes(e.id)),
+      edges: edges.filter(
+        (e) => !ids.includes(e.id) && !ids.includes(e.source) && !ids.includes(e.target),
+      ),
       ...(ids.includes(selectedNodeId) ? { selectedNode: null, selectedNodeId: null } : {}),
     });
   },
@@ -527,10 +653,37 @@ const flowStore = (set, get) => ({
       if (rest.length) set({ nodes: applyNodeChanges(rest, get().nodes) });
       return;
     }
+    // A drag is recorded once, from the position map before the first move.
+    const startDrag = changes.some((change) => change.type === "position" && change.dragging);
+    const endDrag = changes.some(
+      (change) => change.type === "position" && change.dragging === false,
+    );
+    if (startDrag && !dragBaseline) {
+      dragBaseline = {
+        elements: captureHistory(get()),
+        positions: new Map(nodes.map((node) => [node.id, `${node.position.x},${node.position.y}`])),
+      };
+    }
     set({ nodes: applyNodeChanges(changes, nodes) });
+    if (endDrag && dragBaseline) {
+      const baseline = dragBaseline;
+      dragBaseline = null;
+      const moved = get().nodes.some(
+        (node) => baseline.positions.get(node.id) !== `${node.position.x},${node.position.y}`,
+      );
+      if (moved) {
+        pushHistoryEntry(baseline.elements);
+        lastHistoryKey = null;
+        lastHistoryAt = 0;
+      }
+    }
   },
   onEdgesChange: (changes) => {
     const { edges } = get();
+    const removes = changes.filter((change) => change.type === "remove");
+    // Node deletion reports its connected edges first; record here while the snapshot still
+    // contains the nodes, then let removeElements coalesce into the same entry.
+    if (removes.length) recordRemovalHistory(get());
     set({ edges: applyEdgeChanges(changes, edges) });
   },
   setFlowTransform: (flowTransform) => set({ flowTransform }),

@@ -112,6 +112,8 @@ const AppInner = ({
   const setDemoMode = useStore((state) => state.setDemoMode);
   const setOnFlowSaveCallback = useStore((state) => state.setOnFlowSaveCallback);
   const restoreSession = useStore((state) => state.restoreSession);
+  const undo = useStore((state) => state.undo);
+  const redo = useStore((state) => state.redo);
   const selectedCurrent = useStore((state) => {
     const node = state.nodes.find((n) => n.id === state.selectedNode?.id);
     return node?.data?.current;
@@ -197,6 +199,22 @@ const AppInner = ({
       clear();
     },
     [clear],
+  );
+  useHotkeys(
+    "ctrl+z, command+z",
+    (event) => {
+      event.preventDefault();
+      undo();
+    },
+    [undo],
+  );
+  useHotkeys(
+    "ctrl+shift+z, command+shift+z",
+    (event) => {
+      event.preventDefault();
+      redo();
+    },
+    [redo],
   );
 
   return (

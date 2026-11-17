@@ -242,11 +242,11 @@ const DataToPointsComponent = ({ id, data }) => {
     [id, updateNodeData],
   );
   const onLngChangeData = useCallback(
-    ({ column }) => updateNodeData({ id, data: { lngColumn: column } }),
+    ({ column }) => updateNodeData({ id, data: { lngColumn: column }, transient: true }),
     [id, updateNodeData],
   );
   const onLatChangeData = useCallback(
-    ({ column }) => updateNodeData({ id, data: { latColumn: column } }),
+    ({ column }) => updateNodeData({ id, data: { latColumn: column }, transient: true }),
     [id, updateNodeData],
   );
 
@@ -325,7 +325,11 @@ const TopoToGeoComponent = ({ id, data }) => {
   useEffect(() => {
     if (valid) {
       const nextLayers = Object.keys(input.objects);
-      updateNodeData({ id, data: { layers: nextLayers, layer: nextLayers[0] } });
+      updateNodeData({
+        id,
+        data: { layers: nextLayers, layer: nextLayers[0] },
+        transient: true,
+      });
     }
   }, [id, input, valid, updateNodeData]);
 

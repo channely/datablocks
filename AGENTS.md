@@ -64,6 +64,12 @@ Node 22 is required (see `.nvmrc`).
    datasets into serialized node data. localforage keys: `flow__settings`, `flow__index`,
    `flow__<id>`, `flow__autosave`. Bump the version when the document shape changes and keep
    the legacy `{ elements, x, y, zoom }` reader working.
+9. **Undo history.** History entries are `serializeFlow(...).elements` snapshots applied through
+   `deserializeFlow`, so payloads are pinned by reference and re-registered with `dataStore.set`
+   on restore. Record before every user-visible mutation (`addElement`, `updateNodeData`,
+   `removeElements`, drag end, layout commands). Writes derived from upstream data or from
+   `ColumnSelect`'s auto-selection effect must pass `transient: true`, or loading a flow will
+   create a phantom history step. `applyFlow`, `newFlow`, and import clear the history.
 
 ## Security
 

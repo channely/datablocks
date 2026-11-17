@@ -59,6 +59,10 @@ with no account and no backend.
   document with every node result embedded; `File → Import flow…` loads such a file (v1 and the
   legacy layout used by the introduction flow). Invalid files are rejected with an error in the
   terminal and leave the canvas untouched.
+- **Undo / redo** — `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z` (or **View → Undo/Redo**) step through
+  canvas edits: adding and deleting nodes or connections, dragging, and block settings. Bursts
+  of typing on one node undo as one step. Loading, creating, or importing a flow starts a fresh
+  history.
 - **Storage limits** — the browser origin has a finite storage quota. Datasets and map outputs are
   embedded in saved and exported flows, so large inputs grow the document quickly; export a flow
   to keep a copy and remove old library entries when storage fills up.

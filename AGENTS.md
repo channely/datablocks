@@ -19,7 +19,7 @@ npm run e2e            # Playwright end-to-end tests against build + preview (:4
 npm run check:lockfile # every package-lock.json URL must point at registry.npmjs.org
 ```
 
-Node 22 is required (see `.nvmrc`).
+Node 24 is used in CI (`.nvmrc`); `engines` requires Node >= 22.12 (Vite 8).
 
 ## Where things live
 
@@ -27,6 +27,8 @@ Node 22 is required (see `.nvmrc`).
 - `src/components/Flow.jsx` — React Flow canvas, selection, context menu, minimap.
 - `src/components/NodeWrapper.jsx` — node chrome, error boundary, summary, handle placement.
 - `src/components/FlowLibrary.jsx` — local flow library modal (open/rename/duplicate/export/delete).
+- `src/components/ui/` — shadcn/ui primitives (Radix + Tailwind); `src/lib/utils.js` holds `cn`.
+- `src/index.css` / `src/lib/themeTokens.js` — design tokens (CSS variables and raw values).
 - `src/blocks/` — one file per block group plus `registry.js` (the single source of truth for
   available blocks, labels, groups, input/output types, and default node data).
 - `src/store/index.js` — zustand store. `nodes`/`edges` mirror React Flow elements; persistence
@@ -67,8 +69,13 @@ Node 22 is required (see `.nvmrc`).
 6. **Sub-path hosting.** Never hard-code root-absolute asset URLs. Use
    `import.meta.env.BASE_URL` for files in `public/` (`store.loadFlow`, example data, fonts in
    `index.html` via `%BASE_URL%`). The app is deployed at `/datablocks/`.
-7. **Visual parity.** The Chakra theme and React Flow CSS are tuned to match the reference
-   demo. Avoid restyling shared primitives unless the task explicitly asks for it.
+7. **Visual parity.** Colors, fonts and the 12px base size are design tokens declared in
+   `src/index.css` (`@theme`) and mirrored in `src/lib/themeTokens.js` for raw-value consumers
+   (Vega configs, minimap, handles); a unit test keeps the two in sync. shadcn components live
+   in `src/components/ui/`, and React Flow overrides sit in the unlayered part of
+   `src/index.css` (layer order in `src/layers.css`). Literal pixel sizes use arbitrary values
+   (`py-[12px]`) because the root font size is 12px. Avoid restyling shared primitives unless
+   the task explicitly asks for it.
 8. **Persistence schema.** Flow documents are versioned (`FLOW_VERSION` = 2 in
    `src/lib/flowSerialization.js`) and must go through `serializeFlow` / `deserializeFlow`.
    Datasets live in the top-level `payloads: [{ data }]` table, deduplicated by reference; node

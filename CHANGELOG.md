@@ -4,6 +4,47 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions use
 [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] — 2026-11-18
+
+Stack upgrade. Every dependency now tracks its latest major. The v1.4 unit and E2E suites pass
+unchanged; only `data-testid`-level selectors were touched.
+
+### Changed
+
+- React 17 → 19 (`createRoot`), Vite 8 (Rolldown) with `@vitejs/plugin-react` 6, ESLint 10
+  with the latest react-hooks plugin. Node ≥ 22.12 is required; CI runs Node 24.
+- zustand 5 (named `create`, `useShallow` for object selectors).
+- react-flow-renderer 10 → `@xyflow/react` 13. Serialized fields and handle-id suffixes are
+  unchanged, so v1/v2 and legacy flow files still open.
+- UI library: Chakra UI 1 (plus Emotion and framer-motion) → shadcn/ui on Radix with
+  Tailwind CSS 4, `class-variance-authority`, `tailwind-merge`, `tw-animate-css` and
+  `lucide-react`. The theme lives in `src/index.css` (`@theme` tokens), mirrored in
+  `src/lib/themeTokens.js`. Canvas selects use the native select to avoid portal/zoom issues.
+- react-vega 8 / vega-embed 7 / Vega 6 / Vega-Lite 6, react-map-gl 8 (`react-map-gl/mapbox`)
+  with Mapbox GL 3, react-virtualized 10 with `react-virtualized-auto-sizer`,
+  react-hotkeys-hook 5, react-dropzone 20, console-feed, nanoid 5, DOMPurify, Turf and others.
+- GitHub Actions bumped to their current majors.
+- Removed `.npmrc` (`legacy-peer-deps` is no longer needed).
+
+### Fixed
+
+- Charts use the canvas renderer again (vega-embed 7 defaults to SVG, which turned a 20k-row
+  scatterplot into 20k DOM nodes) and recompute autosize after data arrives, so axis titles and
+  labels are not clipped.
+- A Histogram with no column selected yet no longer throws in Vega 6.
+- Undo/redo/save hotkeys bind both Ctrl and ⌘ (react-hotkeys-hook 5 matches modifiers exactly).
+
+### Visual differences from 1.4
+
+- The Simplify slider shows a visible track; hover and placeholder tints are close
+  approximations of the Chakra ones; dropdown menus have no exit animation. Charts, nodes,
+  tables and dialogs match 1.4.
+
+### Security
+
+- `npm audit`: 0 high. One moderate advisory remains in `showdown` (no upstream fix); Markdown
+  output is still sanitized with DOMPurify before rendering.
+
 ## [1.4.0] — 2026-11-17
 
 Automated tests as a safety net for the upcoming stack upgrade.

@@ -149,18 +149,21 @@ the build works under a repository sub-path. To host the app at a different path
 
 ## Tech stack
 
-- **React 17** + **Vite** — application shell and build tooling
-- **React Flow** (`react-flow-renderer` 10) — node graph canvas
-- **Chakra UI** 1 — dark theme and components
-- **zustand** — application state
-- **Vega** — charts; **react-map-gl** + Mapbox GL — maps
-- **Papa Parse** — CSV; **Turf**, **topojson** — geo processing
-- **react-virtualized** — data grid; **react-json-tree** — object inspector
+- **React 19** + **Vite 8** (Rolldown) — application shell and build tooling
+- **React Flow** (`@xyflow/react` 13) — node graph canvas
+- **shadcn/ui** (Radix primitives, `class-variance-authority`, `tailwind-merge`, lucide icons)
+  - **Tailwind CSS 4** — dark theme and components; design tokens in `src/index.css`
+- **zustand 5** — application state
+- **Vega 6** / Vega-Lite 6 via `react-vega` 8 — charts; **react-map-gl 8** + Mapbox GL 3 — maps
+- **Papa Parse** — CSV; **Turf 7**, **topojson** — geo processing
+- **react-virtualized 10** — data grid; **react-json-tree** — object inspector
 - **CodeJar** + **highlight.js** + **Prettier** — in-node code editor
 - **localforage** — local flow persistence
+- **Vitest** + **Playwright** — unit and end-to-end tests; **ESLint 10** + **Prettier** — linting
 
-Dependency majors are intentionally held at versions that preserve behavior and visual parity
-with the reference demo. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design.
+All dependencies track their latest majors. Visual parity with the reference demo is kept by the
+tokens in `src/index.css` / `src/lib/themeTokens.js`. See
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design.
 
 ## Project structure
 

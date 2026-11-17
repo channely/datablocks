@@ -140,6 +140,19 @@ derives its join from its two inputs and the selected columns and stores only th
 
 Export formats are derived from the same type (`exporters.js`).
 
+## UI layer and styling
+
+UI primitives are shadcn/ui components in `src/components/ui/` (Radix + Tailwind CSS 4, class
+merging through `cn` in `src/lib/utils.js`). Design tokens (colors, the 12px root font size,
+IBM Plex / Source Code Pro) are declared once in `src/index.css` under `@theme` and mirrored for
+JavaScript consumers (Vega chart configs, React Flow minimap and handles, the terminal) in `src/lib/themeTokens.js`; a unit test keeps
+the two in sync. Cascade layers are declared in `src/layers.css`
+(`theme, base, xyflow, components, utilities`), and React Flow overrides live in the unlayered
+part of `index.css` so they win over library styles. Selects inside canvas nodes use the native
+select (no portal) so they behave under zoom, and interactive controls inside nodes keep the
+`nodrag` class. Charts render through `VegaChart` (react-vega, canvas renderer), lazily loaded
+with the Vega chunk.
+
 ## Javascript execution
 
 `src/lib/execution.js` creates a hidden same-origin iframe and loads dependencies from a CDN.

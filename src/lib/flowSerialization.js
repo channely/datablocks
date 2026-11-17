@@ -21,9 +21,14 @@
  * Older documents are still read: version 1 stored `current: { data, type }` inline, and files
  * produced by the reference demo use the `{ elements, x, y, zoom }` shape with raw values.
  */
-import { isEdge, isNode } from "react-flow-renderer";
 import cloneDeep from "lodash-es/cloneDeep";
 import dataStore from "./dataStore";
+
+/** Element discriminators for legacy `elements` arrays: edges carry `source` and `target`. */
+export const isEdge = (element) =>
+  Boolean(element) && typeof element === "object" && "source" in element && "target" in element;
+export const isNode = (element) =>
+  Boolean(element) && typeof element === "object" && "id" in element && !isEdge(element);
 
 export const FLOW_VERSION = 2;
 

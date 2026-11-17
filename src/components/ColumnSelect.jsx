@@ -4,7 +4,7 @@
  */
 import { memo, useCallback, useEffect, useMemo } from "react";
 import { Box, Select, useTheme } from "@chakra-ui/react";
-import { Handle, Position } from "react-flow-renderer";
+import { Handle, Position } from "@xyflow/react";
 import { getColumnNames } from "../lib/types";
 
 const ColumnSelect = ({

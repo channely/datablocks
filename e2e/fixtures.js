@@ -127,7 +127,19 @@ const createApp = (page) => {
   const selectEdge = async (edgeId) => {
     const point = await page
       .locator(`[data-testid="edge-path"][data-edge-id="${edgeId}"]`)
-      .evaluate((path) => {
+      .evaluate(async (path) => {
+        // The viewport of a freshly loaded flow settles a frame or two after its edges render;
+        // wait until the path's screen transform stops moving before picking a point.
+        const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+        let previous = "";
+        for (let tries = 0; tries < 60; tries += 1) {
+          const { a, b, c, d, e, f } = path.getScreenCTM();
+          const current = [a, b, c, d, e, f, path.getAttribute("d")].join();
+          if (current === previous) break;
+          previous = current;
+          await frame();
+          await frame();
+        }
         const total = path.getTotalLength();
         for (let step = 1; step < 20; step += 1) {
           const local = path.getPointAtLength((total * step) / 20);

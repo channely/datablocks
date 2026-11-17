@@ -4,8 +4,7 @@
  */
 import { createRoot } from "react-dom/client";
 import { ChakraProvider } from "@chakra-ui/react";
-import "react-flow-renderer/dist/style.css";
-import "react-flow-renderer/dist/theme-default.css";
+import "@xyflow/react/dist/style.css";
 import "react-virtualized/styles.css";
 import App from "./App";
 import theme from "./theme";

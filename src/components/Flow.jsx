@@ -4,16 +4,11 @@
  */
 import { memo, useCallback, useMemo } from "react";
 import { Box, Flex, useTheme } from "@chakra-ui/react";
-import ReactFlow, {
-  Background,
-  ControlButton,
-  Controls,
-  MiniMap,
-  isNode,
-} from "react-flow-renderer";
+import { Background, ControlButton, Controls, MiniMap, ReactFlow } from "@xyflow/react";
 import useStore from "../store";
 import { getNodeTypes } from "../blocks/registry";
 import { getFlowRect } from "../lib/download";
+import { isNode } from "../lib/flowSerialization";
 import { useAutoLayout } from "../hooks/useFlowCommands";
 import Edge from "./Edge";
 import { LayoutIcon } from "./icons";
@@ -75,11 +70,16 @@ export const Flow = memo(() => {
       width="100%"
       height="100%"
       sx={{
+        // react-flow-renderer placed controls/minimap 20px from the bottom; panels now use a margin.
+        ".react-flow__controls, .react-flow__minimap": { marginBottom: "20px" },
         ".react-flow__controls-button": {
+          // @xyflow/react sizes buttons with border-box; keep react-flow-renderer's 22px box.
+          boxSizing: "content-box",
+          padding: "5px",
           width: "12px",
           height: "12px",
           background: theme.colors.bg.grey,
-          borderBottomColor: "rgba(226, 232, 240, 0.2)",
+          borderBottom: "1px solid rgba(226, 232, 240, 0.2)",
           "&:last-child": { border: "none" },
           path: { fill: theme.colors.text },
         },

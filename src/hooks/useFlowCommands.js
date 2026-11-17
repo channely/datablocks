@@ -4,9 +4,8 @@
  * and loading every block at the origin.
  */
 import { useCallback } from "react";
-import { isNode, useReactFlow, useStoreApi } from "react-flow-renderer";
+import { useReactFlow } from "@xyflow/react";
 import dagre from "dagre";
-import cloneDeep from "lodash-es/cloneDeep";
 import useStore from "../store";
 import { BLOCKS } from "../blocks/registry";
 import { flowFileName } from "../lib/flowSerialization";
@@ -25,8 +24,7 @@ export const useFlowCommands = () => {
   const recordHistory = useStore((state) => state.recordHistory);
   const flowId = useStore((state) => state.id);
   const flowTitle = useStore((state) => state.title);
-  const store = useStoreApi();
-  const { setViewport, viewportInitialized } = useReactFlow();
+  const { getNodes, getEdges, getViewport, setViewport, viewportInitialized } = useReactFlow();
 
   const clear = useCallback(() => {
     if (viewportInitialized && window.confirm("Are you sure?")) {
@@ -42,17 +40,9 @@ export const useFlowCommands = () => {
    * unchanged. The standalone app falls back to the local flow library.
    */
   const save = useCallback(async () => {
-    const state = store.getState();
-    const nodes = Array.from(state.nodeInternals.values());
-    const { edges, transform } = state;
     if (onFlowSaveCallback) {
-      onFlowSaveCallback({
-        nodes,
-        edges,
-        x: transform[0],
-        y: transform[1],
-        zoom: transform[2],
-      });
+      const { x, y, zoom } = getViewport();
+      onFlowSaveCallback({ nodes: getNodes(), edges: getEdges(), x, y, zoom });
       return null;
     }
     try {
@@ -63,7 +53,7 @@ export const useFlowCommands = () => {
       // The store already logged the failure with a recovery hint.
       return null;
     }
-  }, [store, onFlowSaveCallback, saveFlow, flowId, flowTitle, addLogs]);
+  }, [getNodes, getEdges, getViewport, onFlowSaveCallback, saveFlow, flowId, flowTitle, addLogs]);
 
   const saveAs = useCallback(async () => {
     const suggested = flowTitle === "Untitled flow" ? "My flow" : flowTitle;
@@ -126,44 +116,38 @@ export const useFlowCommands = () => {
   return { clear, save, saveAs, openFlows, newFlow, exportFlow: exportFlowCommand, importFlowFile };
 };
 
-const layoutElements = (elements) => {
+/**
+ * Dagre left-to-right layout. Node sizes come from React Flow's `measured` dimensions (falling
+ * back to explicit `width`/`height`); only positions change, so every other field is kept.
+ */
+const layoutElements = (nodes, edges) => {
   const graph = new dagre.graphlib.Graph();
   graph.setDefaultEdgeLabel(() => ({}));
   graph.setGraph({ rankdir: "LR", ranksep: 100 });
-  elements.forEach((element) => {
-    if (isNode(element)) {
-      graph.setNode(element.id, {
-        width: element.width,
-        height: element.height,
-      });
-    } else {
-      graph.setEdge(element.source, element.target);
-    }
+  nodes.forEach((node) => {
+    graph.setNode(node.id, {
+      width: node.measured?.width ?? node.width ?? 0,
+      height: node.measured?.height ?? node.height ?? 0,
+    });
   });
+  edges.forEach((edge) => graph.setEdge(edge.source, edge.target));
   dagre.layout(graph);
-  return elements.map((element) => {
-    const copy = cloneDeep(element);
-    if (isNode(copy)) {
-      const node = graph.node(copy.id);
-      // The tiny random x offset mirrors the reference demo's layout output.
-      return {
-        ...copy,
-        position: { x: node.x + Math.random() / 1000, y: node.y },
-      };
-    }
-    return copy;
+  const laidOut = nodes.map((node) => {
+    const { x, y } = graph.node(node.id);
+    // The tiny random x offset mirrors the reference demo's layout output.
+    return { ...node, position: { x: x + Math.random() / 1000, y } };
   });
+  return [...laidOut, ...edges];
 };
 
 export const useAutoLayout = () => {
   const setElements = useStore((state) => state.setElements);
   const recordHistory = useStore((state) => state.recordHistory);
-  const store = useStoreApi();
   return useCallback(() => {
-    const { nodeInternals, edges } = store.getState();
+    const { nodes, edges } = useStore.getState();
     recordHistory();
-    setElements(layoutElements([...Array.from(nodeInternals.values()), ...edges]));
-  }, [recordHistory, setElements, store]);
+    setElements(layoutElements(nodes, edges));
+  }, [recordHistory, setElements]);
 };
 
 export const useLoadAllNodes = () => {

@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Box, Button, Flex, Input } from "@chakra-ui/react";
-import { useReactFlow } from "react-flow-renderer";
+import { useReactFlow } from "@xyflow/react";
 import useStore from "../store";
 import { CheckIcon, Logo, PencilIcon } from "./icons";
 import Dropdown from "./Dropdown";

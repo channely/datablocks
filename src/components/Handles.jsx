@@ -3,7 +3,7 @@
  * always accept a connection; `useInputData` then marks the edge as invalid when needed.
  * Connected handles use the hover color.
  */
-import { Handle, Position } from "react-flow-renderer";
+import { Handle, Position } from "@xyflow/react";
 import { useTheme } from "@chakra-ui/react";
 import useStore from "../store";
 
@@ -42,7 +42,6 @@ const ConnectedHandle = ({ id, type, className, style, ...rest }) => {
       type={type}
       position={type === "source" ? Position.Right : Position.Left}
       className={className}
-      isValidConnection={() => true}
       data-testid={`${type}-handle`}
       style={{
         ...baseStyle,

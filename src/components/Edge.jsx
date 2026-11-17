@@ -3,7 +3,7 @@
  * midpoint. Animated edges render no label; invalid edges show ⚠.
  */
 import { useCallback } from "react";
-import { getBezierPath, getEdgeCenter } from "react-flow-renderer";
+import { getBezierPath } from "@xyflow/react";
 import useStore from "../store";
 
 const Edge = ({
@@ -19,20 +19,14 @@ const Edge = ({
   label,
 }) => {
   const removeElements = useStore((state) => state.removeElements);
-  const edgePath = getBezierPath({
+  // For left/right handles the bezier midpoint equals the straight-line center the label used
+  // with react-flow-renderer's `getEdgeCenter`.
+  const [edgePath, edgeCenterX, edgeCenterY] = getBezierPath({
     sourceX,
     sourceY,
     sourcePosition,
     targetX,
     targetY,
-    targetPosition,
-  });
-  const [edgeCenterX, edgeCenterY] = getEdgeCenter({
-    sourceX,
-    sourceY,
-    targetX,
-    targetY,
-    sourcePosition,
     targetPosition,
   });
   const remove = useCallback(() => removeElements([{ id }]), [id, removeElements]);

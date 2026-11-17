@@ -135,7 +135,7 @@ describe("flow state basics", () => {
 
   it("addNode generates ids/types and projects positions through the flow instance", () => {
     useStore.setState({
-      flowInstance: { project: ({ x, y }) => ({ x: x - 10, y: y - 20 }) },
+      flowInstance: { getViewport: () => ({ x: 10, y: 20, zoom: 1 }) },
     });
     get().addNode({ position: { x: 100, y: 200 } });
     const [node] = get().nodes;

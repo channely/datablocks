@@ -20,7 +20,7 @@ import { create } from "zustand";
 import cloneDeep from "lodash-es/cloneDeep";
 import localforage from "localforage";
 import { nanoid } from "nanoid";
-import { applyEdgeChanges, applyNodeChanges, isEdge, isNode } from "react-flow-renderer";
+import { EdgeChangeset, NodeChangeset } from "@xyflow/react";
 import execution from "../lib/execution";
 import dataStore from "../lib/dataStore";
 import { count, timed } from "../lib/perf";
@@ -35,6 +35,8 @@ import {
   DEFAULT_TITLE,
   FLOW_VERSION,
   deserializeFlow,
+  isEdge,
+  isNode,
   serializeFlow,
 } from "../lib/flowSerialization";
 
@@ -140,6 +142,12 @@ const clearPendingAutosave = () => {
     // Storage access can throw in locked-down browsers; the pending copy is best effort.
   }
 };
+
+// @xyflow/react 13 hands `onNodesChange`/`onEdgesChange` an iterable changeset; plain arrays
+// (tests, internal callers) are accepted too.
+const toChangeList = (changes) => (Array.isArray(changes) ? changes : [...changes]);
+const applyNodeChanges = (changes, nodes) => new NodeChangeset(changes).applyTo(nodes);
+const applyEdgeChanges = (changes, edges) => new EdgeChangeset(changes).applyTo(edges);
 
 const isNewer = (a, b) => !b || String(a?.updatedAt || "") >= String(b.updatedAt || "");
 
@@ -423,8 +431,16 @@ const flowStore = (set, get) => ({
     const { type: _type, current, ...rest } = data;
     const rect = getFlowRect();
     const center = rect ? { x: rect.width / 2 - 150, y: rect.height / 2 - 40 } : { x: 0, y: 0 };
+    // `payload.position` is relative to the canvas element (see Flow's context menu); convert it
+    // with the current viewport, as react-flow-renderer's `project` did.
+    const viewport = flowInstance?.getViewport?.();
     const position =
-      flowInstance && payload.position ? flowInstance.project(payload.position) : center;
+      viewport && payload.position
+        ? {
+            x: (payload.position.x - viewport.x) / viewport.zoom,
+            y: (payload.position.y - viewport.y) / viewport.zoom,
+          }
+        : center;
     if (current) rest.current = dataStore.set(current);
     const node = {
       id: payload.id || nanoid(),
@@ -787,7 +803,8 @@ const flowStore = (set, get) => ({
   },
   addNodes: (nodes) => set({ nodes: get().nodes.concat(nodes) }),
   addEdges: (edges) => set({ edges: get().edges.concat(edges) }),
-  onNodesChange: (changes) => {
+  onNodesChange: (changeset) => {
+    const changes = toChangeList(changeset);
     const { codeEditorFocus, nodes } = get();
     if (codeEditorFocus) return;
     // React Flow removes nodes on Backspace; route those through removeElements so cached
@@ -824,7 +841,8 @@ const flowStore = (set, get) => ({
       }
     }
   },
-  onEdgesChange: (changes) => {
+  onEdgesChange: (changeset) => {
+    const changes = toChangeList(changeset);
     const { edges } = get();
     const removes = changes.filter((change) => change.type === "remove");
     // Node deletion reports its connected edges first; record here while the snapshot still

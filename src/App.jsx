@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Box, Button, Flex } from "@chakra-ui/react";
 import { useDropzone } from "react-dropzone";
 import { useHotkeys } from "react-hotkeys-hook";
-import { ReactFlowProvider, useReactFlow } from "react-flow-renderer";
+import { ReactFlowProvider, useReactFlow } from "@xyflow/react";
 import useStore from "./store";
 import Header from "./components/Header";
 import FlowView from "./components/Flow";

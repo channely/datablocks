@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Button, Flex, FormLabel, Input, Select } from "@chakra-ui/react";
-import { Handle, Position } from "react-flow-renderer";
+import { Handle, Position } from "@xyflow/react";
 import orderBy from "lodash-es/orderBy";
 import groupBy from "lodash-es/groupBy";
 import { CodeJar } from "codejar";

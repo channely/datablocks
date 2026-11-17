@@ -3,7 +3,8 @@
  * as a swatch so Colorize results are visible in the grid.
  */
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { AutoSizer, MultiGrid } from "react-virtualized";
+import { MultiGrid } from "react-virtualized";
+import { AutoSizer } from "react-virtualized-auto-sizer";
 import sortBy from "lodash-es/sortBy";
 import { getColumns } from "../lib/types";
 import { ChevronDownIcon, ChevronUpIcon } from "./icons";
@@ -103,20 +104,24 @@ const GridView = memo(({ data = [], dataId }) => {
 
   return (
     <div className="flex h-full">
-      <AutoSizer>
-        {({ height, width }) => (
-          <MultiGrid
-            cellRenderer={cellRenderer}
-            fixedRowCount={1}
-            columnCount={columns.length}
-            columnWidth={200}
-            height={height}
-            rowCount={rows.length + 1}
-            rowHeight={25}
-            width={width}
-          />
-        )}
-      </AutoSizer>
+      {/* react-virtualized 10 ships AutoSizer separately; the size is undefined on first render. */}
+      <AutoSizer
+        className="h-full min-w-0 flex-1"
+        renderProp={({ height, width }) =>
+          height && width ? (
+            <MultiGrid
+              cellRenderer={cellRenderer}
+              fixedRowCount={1}
+              columnCount={columns.length}
+              columnWidth={200}
+              height={height}
+              rowCount={rows.length + 1}
+              rowHeight={25}
+              width={width}
+            />
+          ) : null
+        }
+      />
     </div>
   );
 });

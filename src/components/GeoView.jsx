@@ -7,7 +7,7 @@
  */
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import MapGL, { Layer, Source, WebMercatorViewport } from "react-map-gl";
+import MapGL, { Layer, Source } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { TYPES, geoToRows } from "../lib/types";
 import { getBbox, topologyToGeo } from "../lib/geo";
@@ -55,23 +55,34 @@ const CIRCLE_LAYER = {
   },
 };
 
+/** `[[minX, minY], [maxX, maxY]]`, or `null` when the data has no finite coordinates. */
+const toBounds = (data) => {
+  const [minX, minY, maxX, maxY] = getBbox(data);
+  return [minX, minY, maxX, maxY].every(Number.isFinite)
+    ? [
+        [minX, minY],
+        [maxX, maxY],
+      ]
+    : null;
+};
+
+const FIT_OPTIONS = { padding: 20 };
+const MAP_STYLE = { width: "100%", height: "100%" };
+
+/**
+ * Uncontrolled Mapbox GL map (react-map-gl 8). The first render fits the data through
+ * `initialViewState.bounds`; later datasets re-fit the existing map instead of remounting it.
+ */
 const GeoViewMapboxGL = memo(({ data }) => {
-  const [viewport, setViewport] = useState(null);
-  const ref = useRef(null);
+  const mapRef = useRef(null);
+  const bounds = useMemo(() => toBounds(data), [data]);
+  const [initialViewState] = useState(() =>
+    bounds ? { bounds, fitBoundsOptions: FIT_OPTIONS } : undefined,
+  );
 
   useEffect(() => {
-    const rect = ref.current.getBoundingClientRect();
-    const [minX, minY, maxX, maxY] = getBbox(data);
-    const bounds = [
-      [minX, minY],
-      [maxX, maxY],
-    ];
-    const nextViewport = new WebMercatorViewport({
-      width: rect.width,
-      height: rect.height,
-    }).fitBounds(bounds, { padding: 20 });
-    setViewport(nextViewport);
-  }, [data]);
+    if (bounds) mapRef.current?.fitBounds(bounds, { ...FIT_OPTIONS, duration: 0 });
+  }, [bounds]);
 
   const layers = useMemo(() => {
     const first = (data.features ? data.features : [data])[0];
@@ -86,21 +97,18 @@ const GeoViewMapboxGL = memo(({ data }) => {
   }, [data]);
 
   return (
-    <div ref={ref} className="relative h-full overflow-hidden">
-      {viewport && (
-        <MapGL
-          {...viewport}
-          mapboxApiAccessToken={MAPBOX_TOKEN}
-          mapStyle={MAPBOX_STYLE}
-          onViewportChange={setViewport}
-          width="100%"
-          height="100%"
-        >
-          <Source type="geojson" id="geojson" data={data}>
-            {layers}
-          </Source>
-        </MapGL>
-      )}
+    <div className="relative h-full overflow-hidden">
+      <MapGL
+        ref={mapRef}
+        initialViewState={initialViewState}
+        mapboxAccessToken={MAPBOX_TOKEN}
+        mapStyle={MAPBOX_STYLE}
+        style={MAP_STYLE}
+      >
+        <Source type="geojson" id="geojson" data={data}>
+          {layers}
+        </Source>
+      </MapGL>
     </div>
   );
 });

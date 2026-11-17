@@ -24,6 +24,9 @@ import { useFlowCommands } from "./hooks/useFlowCommands";
 import useData from "./hooks/useData";
 import useAutosave from "./hooks/useAutosave";
 
+/** Shortcuts override the browser defaults (save page, open file, …). */
+const HOTKEY_OPTIONS = { preventDefault: true };
+
 const AddBlock = () => {
   const setModal = useStore((state) => state.setModal);
   return (
@@ -157,54 +160,15 @@ const AppInner = ({
 
   useAutosave({ enabled: !restoring && !demoMode && !loading });
 
-  useHotkeys(
-    "ctrl+s, command+s",
-    (event) => {
-      event.preventDefault();
-      save();
-    },
-    [save],
-  );
-  useHotkeys(
-    "ctrl+o, command+o",
-    (event) => {
-      event.preventDefault();
-      openFlows();
-    },
-    [openFlows],
-  );
-  useHotkeys(
-    "ctrl+shift+s, command+shift+s",
-    (event) => {
-      event.preventDefault();
-      saveAs();
-    },
-    [saveAs],
-  );
-  useHotkeys(
-    "ctrl+k, command+k",
-    (event) => {
-      event.preventDefault();
-      clear();
-    },
-    [clear],
-  );
-  useHotkeys(
-    "ctrl+z, command+z",
-    (event) => {
-      event.preventDefault();
-      undo();
-    },
-    [undo],
-  );
-  useHotkeys(
-    "ctrl+shift+z, command+shift+z",
-    (event) => {
-      event.preventDefault();
-      redo();
-    },
-    [redo],
-  );
+  // react-hotkeys-hook 5 matches modifiers exactly, so `ctrl+z` does not also fire for
+  // `ctrl+shift+z`. Both Ctrl and ⌘ are bound on every platform (as before) instead of `mod`,
+  // which follows the user agent. Shortcuts stay disabled inside form fields.
+  useHotkeys("ctrl+s, meta+s", () => save(), HOTKEY_OPTIONS, [save]);
+  useHotkeys("ctrl+o, meta+o", () => openFlows(), HOTKEY_OPTIONS, [openFlows]);
+  useHotkeys("ctrl+shift+s, meta+shift+s", () => saveAs(), HOTKEY_OPTIONS, [saveAs]);
+  useHotkeys("ctrl+k, meta+k", () => clear(), HOTKEY_OPTIONS, [clear]);
+  useHotkeys("ctrl+z, meta+z", () => undo(), HOTKEY_OPTIONS, [undo]);
+  useHotkeys("ctrl+shift+z, meta+shift+z", () => redo(), HOTKEY_OPTIONS, [redo]);
 
   return (
     <div className="relative h-full overflow-hidden">

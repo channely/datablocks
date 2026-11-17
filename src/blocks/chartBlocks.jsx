@@ -177,7 +177,8 @@ const HistogramComponent = ({ id, data, color }) => {
   const { column } = data;
 
   const spec = useMemo(() => {
-    if (!valid || !current) return null;
+    // Until ColumnSelect auto-selects a column the bin field is undefined, which Vega 6 rejects.
+    if (!valid || !current || !column) return null;
     return {
       width: 300,
       height: 150,

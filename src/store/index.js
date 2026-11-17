@@ -116,6 +116,12 @@ const snapshot = (state, overrides = {}) => {
   });
 };
 
+/**
+ * Monotonic token for flow loads. Edge insertion is deferred until nodes have mounted, so a
+ * later load must invalidate an earlier timer; otherwise stale edges land on the new canvas.
+ */
+let loadGeneration = 0;
+
 /** Replace editor contents from a deserialized flow (edges are deferred like React Flow expects). */
 const applyFlow = (flow, meta = {}) => {
   const { nodes, edges } = splitFlow(flow);
@@ -128,8 +134,13 @@ const applyFlow = (flow, meta = {}) => {
   });
   state.setElements(nodes);
   state.setFlowTransform(flow.viewport);
+  state.selectNode(null);
+  const generation = ++loadGeneration;
   // Edges are added after the nodes have mounted; mirrors the reference loading behavior.
-  setTimeout(() => useStore.getState().addEdges(edges), 250);
+  setTimeout(() => {
+    if (generation !== loadGeneration) return;
+    useStore.getState().addEdges(edges);
+  }, 250);
   useStore.setState({
     saveStatus: meta.saveStatus || "idle",
     lastSavedAt: meta.lastSavedAt || null,
@@ -189,7 +200,8 @@ const flowStore = (set, get) => ({
   selectedNode: null,
   codeEditorFocus: false,
   setTitle: (title) => {
-    if (title) set({ title });
+    const next = (title || "").trim();
+    if (next) set({ title: next });
   },
   addElement: (element) => {
     if (element.target) {
@@ -282,7 +294,10 @@ const flowStore = (set, get) => ({
       y: flow?.viewport?.y || flow?.y || 0,
       zoom: flow?.viewport?.zoom || flow?.zoom || 1,
     });
+    state.selectNode(null);
+    const generation = ++loadGeneration;
     setTimeout(() => {
+      if (generation !== loadGeneration) return;
       state.addEdges(edges);
     }, 250);
   },
@@ -298,7 +313,8 @@ const flowStore = (set, get) => ({
   saveFlow: async ({ id, title } = {}) => {
     const state = get();
     const now = new Date().toISOString();
-    const flowId = id || state.id || `flow__${nanoid()}`;
+    // Explicit `null` means "create a new entry" (Save as…); `undefined` reuses the open flow.
+    const flowId = id === null ? `flow__${nanoid()}` : id || state.id || `flow__${nanoid()}`;
     set({ saveStatus: "saving" });
     try {
       const flow = snapshot(state, {
@@ -355,7 +371,16 @@ const flowStore = (set, get) => ({
   },
   /** Restore the last session after a reload. Returns the restored flow or null. */
   restoreSession: async () => {
-    const stored = await storage.getItem(AUTOSAVE_KEY);
+    let stored;
+    try {
+      stored = await storage.getItem(AUTOSAVE_KEY);
+    } catch (error) {
+      get().addLogs({
+        method: "error",
+        data: ["Reading the saved session failed.", error.message],
+      });
+      return null;
+    }
     if (!stored) return null;
     try {
       const flow = deserializeFlow(stored);
@@ -365,6 +390,8 @@ const flowStore = (set, get) => ({
       });
       return flow;
     } catch (error) {
+      // Drop the unreadable snapshot so the next reload starts clean instead of failing again.
+      await storage.removeItem(AUTOSAVE_KEY).catch(() => {});
       get().addLogs({
         method: "error",
         data: ["The saved session could not be restored.", error.message],
@@ -461,10 +488,23 @@ const flowStore = (set, get) => ({
   },
   removeElements: (elements) => {
     const ids = elements.map((e) => e.id);
-    const { nodes, edges } = get();
+    const { nodes, edges, selectedNodeId } = get();
+    const remaining = nodes.filter((n) => !ids.includes(n.id));
+    const removedCurrents = nodes
+      .filter((n) => ids.includes(n.id))
+      .map((n) => n.data?.current)
+      .filter((current) => typeof current === "string");
+    // Release cached payloads that no surviving node still references.
+    const stillUsed = new Set(
+      remaining.map((n) => n.data?.current).filter((current) => typeof current === "string"),
+    );
+    removedCurrents.forEach((current) => {
+      if (!stillUsed.has(current)) dataStore.remove(current);
+    });
     set({
-      nodes: nodes.filter((n) => !ids.includes(n.id)),
+      nodes: remaining,
       edges: edges.filter((e) => !ids.includes(e.id)),
+      ...(ids.includes(selectedNodeId) ? { selectedNode: null, selectedNodeId: null } : {}),
     });
   },
   closeInputNodeModal: () => set({ inputNodeModalData: null }),
@@ -477,7 +517,17 @@ const flowStore = (set, get) => ({
   addEdges: (edges) => set({ edges: get().edges.concat(edges) }),
   onNodesChange: (changes) => {
     const { codeEditorFocus, nodes } = get();
-    if (!codeEditorFocus) set({ nodes: applyNodeChanges(changes, nodes) });
+    if (codeEditorFocus) return;
+    // React Flow removes nodes on Backspace; route those through removeElements so cached
+    // payloads are released and a stale selection is cleared, like the node remove button.
+    const removed = changes.filter((change) => change.type === "remove");
+    if (removed.length) {
+      get().removeElements(removed.map((change) => ({ id: change.id })));
+      const rest = changes.filter((change) => change.type !== "remove");
+      if (rest.length) set({ nodes: applyNodeChanges(rest, get().nodes) });
+      return;
+    }
+    set({ nodes: applyNodeChanges(changes, nodes) });
   },
   onEdgesChange: (changes) => {
     const { edges } = get();

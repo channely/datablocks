@@ -86,7 +86,7 @@ const TitleEditor = ({ onFlowTitleChange }) => {
     if (demoMode) return null;
     e.preventDefault();
     e.stopPropagation();
-    const value = inputRef.current?.value;
+    const value = inputRef.current?.value?.trim();
     if (value) {
       setTitle(value);
       onFlowTitleChange(value);

@@ -141,7 +141,9 @@ const AppInner = ({
   useEffect(() => {
     if (!viewportInitialized || data || restoredRef.current) return;
     restoredRef.current = true;
-    restoreSession().finally(() => setRestoring(false));
+    restoreSession()
+      .catch(() => {})
+      .finally(() => setRestoring(false));
   }, [data, viewportInitialized, restoreSession]);
 
   useEffect(() => {
@@ -209,7 +211,7 @@ const AppInner = ({
           position="relative"
           minHeight="150px"
         >
-          <AddBlock />
+          {!loading && !restoring && <AddBlock />}
           <DropZoneWrapper>
             {!loading && <FlowView />}
             {restoring && (

@@ -129,6 +129,9 @@ export const validateFlow = (flow) => {
       if (!element.id || !element.type || !element.data) {
         throw new Error("A node is missing `id`, `type`, or `data`.");
       }
+      if (nodeIds.has(element.id)) {
+        throw new Error(`Duplicate node id "${element.id}".`);
+      }
       nodeIds.add(element.id);
     }
   });

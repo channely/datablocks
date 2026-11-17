@@ -1,0 +1,51 @@
+name: Bug report
+description: Report a reproducible problem with the editor
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. For security issues, use the private advisory form instead
+        (see SECURITY.md).
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the exact blocks, connections, and inputs involved.
+      placeholder: |
+        1. Open the introduction flow
+        2. Add a Filter block and connect ...
+        3. Select the block
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include console or terminal errors if available.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and OS
+      placeholder: Chrome 131 / macOS 15
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Where did this happen?
+      options:
+        - GitHub Pages deployment
+        - Local development (npm run dev)
+        - Local production build (npm run preview)
+    validations:
+      required: true

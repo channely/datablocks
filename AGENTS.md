@@ -1,0 +1,78 @@
+# AGENTS.md
+
+Guidance for coding agents (and humans) working on this repository. Read this before changing
+the editor internals; the data-flow invariants are easy to break and hard to debug.
+
+## Commands
+
+```bash
+npm install            # install dependencies
+npm run dev            # Vite dev server on :3000
+npm run build          # production build (base /datablocks/)
+npm run preview        # serve the production build
+npm run lint           # ESLint (flat config)
+npm run format         # Prettier write
+npm run format:check   # Prettier check (CI)
+```
+
+Node 22 is required (see `.nvmrc`).
+
+## Where things live
+
+- `src/App.jsx` — layout, default demo flow, drag-and-drop, hotkeys.
+- `src/components/Flow.jsx` — React Flow canvas, selection, context menu, minimap.
+- `src/components/NodeWrapper.jsx` — node chrome, error boundary, summary, handle placement.
+- `src/blocks/` — one file per block group plus `registry.js` (the single source of truth for
+  available blocks, labels, groups, input/output types, and default node data).
+- `src/store/index.js` — zustand store. `nodes`/`edges` mirror React Flow elements.
+- `src/lib/dataStore.js` — in-memory data cache. Node payloads hold **IDs**, not data.
+- `src/lib/execution.js` — iframe execution engine for the Javascript block.
+- `src/lib/types.js` / `geo.js` / `exporters.js` — pure helpers.
+- `public/data/` — example datasets and the introduction flow.
+- `docs/ARCHITECTURE.md` — deeper design notes and diagrams.
+
+## Invariants (do not break)
+
+1. **Data pointers.** A node stores `data.current` as an ID returned by
+   `dataStore.set(...)`. Resolve it with `useData(id)` (or `dataStore.get`). Never store raw
+   datasets in the store. `addNode` and `updateNodeData` already convert `current` values to
+   IDs; use them instead of mutating nodes directly.
+2. **Node wrappers.** Blocks are wrapped with `withNodeWrapper`; it resolves `current`, computes
+   the detected type, and renders handles, summary, and the remove button. Keep the `type`
+   passed to React Flow identical to the registry key.
+3. **Handle IDs.** Single-target blocks use the node id itself as target handle id. Multi-input
+   blocks use fixed suffixes: `${id}-base`, `${id}-insert` (Merge), `${id}-sort` (Sort),
+   `${id}-geocode` (Geocode), `${id}_a`, `${id}_b` (Javascript). `useInputData` finds the
+   incoming edge by `target` or `targetHandle`; changing suffixes breaks saved flows.
+4. **Type validation.** `useInputData(id, types)` returns `[data, type, valid]` and marks the
+   incoming edge invalid (⚠) when the type is not accepted. Blocks must render a clear
+   disconnected/invalid state and must not compute on invalid input.
+5. **Downstream propagation.** Blocks derive their result during render and call
+   `useUpdateNodeCurrent(id, result)` (or `updateNodeData` in an effect). Removing that call
+   silently disconnects downstream nodes.
+6. **Sub-path hosting.** Never hard-code root-absolute asset URLs. Use
+   `import.meta.env.BASE_URL` for files in `public/` (`store.loadFlow`, example data, fonts in
+   `index.html` via `%BASE_URL%`). The app is deployed at `/datablocks/`.
+7. **Visual parity.** The Chakra theme and React Flow CSS are tuned to match the reference
+   demo. Avoid restyling shared primitives unless the task explicitly asks for it.
+
+## Security
+
+- Markdown HTML must be sanitized (`sanitizeHtml` in `miscBlocks.jsx`) before
+  `dangerouslySetInnerHTML`.
+- The Javascript block executes arbitrary user code. Do not claim it is sandboxed in docs or
+  UI. Keep dependency loading behind `VITE_DEPENDENCY_CDN` and use pinned package names.
+- Never commit `.env` files or real API keys. Public Mapbox tokens may be overridden via
+  `VITE_MAPBOX_TOKEN`.
+
+## Verification checklist
+
+For any UI/block change:
+
+1. `npm run lint && npm run build`.
+2. Load the introduction flow (`Help → Introduction Flow` or terminal `intro`).
+3. Select the affected node; confirm the data output (table/JSON/map/chart) renders.
+4. Exercise the disconnected state and an invalid connection.
+5. Save/restore or reload once to ensure no crash from missing `data.current`.
+
+If you cannot verify in a browser, say so explicitly in the pull request.

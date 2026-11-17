@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="datablocks is a node-based editor for data processing, geo analysis, and visualization in the browser."
+    />
+    <meta name="theme-color" content="#1A192B" />
+    <title>datablocks – node-based data processing &amp; visualization</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 209'><path d='M109 0H1C0.45 0 0 0.45 0 1V64C0 64.55 0.45 65 1 65H109C109.55 65 110 64.55 110 64V1C110 0.45 109.55 0 109 0Z' fill='white'/><path d='M155 144H47C46.45 144 46 144.45 46 145V208C46 208.55 46.45 209 47 209H155C155.55 209 156 208.55 156 208V145C156 144.45 155.55 144 155 144Z' fill='white'/><path d='M299 61H191C190.45 61 190 61.45 190 62V125C190 125.55 190.45 126 191 126H299C299.55 126 300 125.55 300 125V62C300 61.45 299.55 61 299 61Z' fill='%23FF0072'/></svg>"
+    />
+    <style>
+      html,
+      body,
+      #root {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        background-color: #000;
+        color: #f8f8f2;
+        font-family: "IBM Plex Sans", system-ui, sans-serif;
+        font-size: 12px;
+      }
+      @font-face {
+        font-family: "IBM Plex Sans";
+        font-weight: 300;
+        font-style: normal;
+        font-display: swap;
+        src: url("%BASE_URL%fonts/ibm-plex-sans-latin-300-normal.f09407e5.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "IBM Plex Sans";
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+        src: url("%BASE_URL%fonts/ibm-plex-sans-latin-400-normal.cca38a3a.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "IBM Plex Sans";
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+        src: url("%BASE_URL%fonts/ibm-plex-sans-latin-700-normal.05088377.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Source Code Pro";
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+        src: url("%BASE_URL%fonts/source-code-pro-latin-400-normal.f109f135.woff2") format("woff2");
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <iframe id="use-execution-iframe" style="display: none"></iframe>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

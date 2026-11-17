@@ -1,0 +1,16 @@
+datablocks
+==========
+
+This repository is an independent, source-available reimplementation of the
+public "datablocks" editor demo (https://editor.datablocks.pro/demo), originally
+created by webkid GmbH (https://webkid.io) and introduced in the article
+"datablocks – A Node-based Editor for Data Processing and Visualization"
+(https://webkid.io/blog/datablocks-node-based-editor-data-processing-visualization/).
+
+The name "datablocks", the original application design, and any associated
+trademarks belong to their respective owners. This project is not affiliated
+with or endorsed by webkid GmbH.
+
+The implementation in this repository was produced independently for
+educational and interoperability purposes. It is licensed under the MIT
+License (see LICENSE).

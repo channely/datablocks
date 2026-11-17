@@ -3,7 +3,6 @@
  * as a swatch so Colorize results are visible in the grid.
  */
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { Flex } from "@chakra-ui/react";
 import { AutoSizer, MultiGrid } from "react-virtualized";
 import sortBy from "lodash-es/sortBy";
 import { getColumns } from "../lib/types";
@@ -63,9 +62,9 @@ const GridView = memo(({ data = [], dataId }) => {
       const cellStyle = name === "color" && !isHeader ? { ...base, backgroundColor: value } : base;
       if (isHeader) {
         return (
-          <Flex
+          <div
             key={key}
-            px={1}
+            className="flex px-1 hover:opacity-80"
             style={{
               ...cellStyle,
               background: "#222138",
@@ -78,12 +77,10 @@ const GridView = memo(({ data = [], dataId }) => {
               paddingBottom: 0,
             }}
             onClick={() => onSort(columnIndex)}
-            _hover={{ opacity: 0.8 }}
           >
             {value}
-            <Flex
-              ml="auto"
-              mr="3px"
+            <div
+              className="mr-[3px] ml-auto flex"
               style={{ opacity: sortState[columnIndex] && sortIndex === columnIndex ? 1 : 0.25 }}
             >
               {sortState[columnIndex] === "desc" ? (
@@ -91,29 +88,21 @@ const GridView = memo(({ data = [], dataId }) => {
               ) : (
                 <ChevronUpIcon style={{ width: 12, height: 12, verticalAlign: "middle" }} />
               )}
-            </Flex>
-          </Flex>
+            </div>
+          </div>
         );
       }
       return (
-        <Flex key={key} px={1} style={cellStyle} alignItems="center">
+        <div key={key} className="flex items-center px-1" style={cellStyle}>
           {value}
-        </Flex>
+        </div>
       );
     },
     [columns, rows, sortState, sortIndex, onSort],
   );
 
   return (
-    <Flex
-      height="100%"
-      sx={{
-        ".ReactVirtualized__Grid": {
-          fontSize: "12px",
-          outline: "none",
-        },
-      }}
-    >
+    <div className="flex h-full">
       <AutoSizer>
         {({ height, width }) => (
           <MultiGrid
@@ -128,7 +117,7 @@ const GridView = memo(({ data = [], dataId }) => {
           />
         )}
       </AutoSizer>
-    </Flex>
+    </div>
   );
 });
 GridView.displayName = "GridView";

@@ -4,7 +4,12 @@
  * keeps only an id on the node. Input blocks have no target handle.
  */
 import { useCallback, useEffect, useState } from "react";
-import { Box, Button, Flex, FormLabel, Input, Select, Textarea } from "@chakra-ui/react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { useDropzone } from "react-dropzone";
 import useStore from "../store";
 import { parseFile, parseText, parseCsv, parseJson, fetchData } from "../lib/dataIO";
@@ -16,25 +21,20 @@ const DropZone = ({ onDrop }) => {
     noDragEventsBubbling: true,
   });
   return (
-    <Flex
+    <div
       {...getRootProps()}
-      opacity={isDragActive ? 0.8 : 1}
-      alignItems="center"
-      justifyContent="center"
-      flexDirection="column"
-      p={2}
-      height="100px"
-      cursor="grab"
+      className={cn(
+        "flex h-[100px] cursor-grab flex-col items-center justify-center p-2",
+        isDragActive ? "opacity-80" : "opacity-100",
+      )}
     >
       <input {...getInputProps()} />
-      <Flex alignItems="center">
+      <div className="flex items-center">
         Drop file here or
-        <Button ml={2}>Open file dialog</Button>
-      </Flex>
-      <Box mt={1} color="silverDarken30">
-        Allowed types: csv, json, geojson, topojson
-      </Box>
-    </Flex>
+        <Button className="ml-2">Open file dialog</Button>
+      </div>
+      <div className="mt-1 text-silver-darken30">Allowed types: csv, json, geojson, topojson</div>
+    </div>
   );
 };
 
@@ -56,15 +56,13 @@ const FileComponent = ({ id, data }) => {
   );
 
   return (
-    <Box minWidth="200px" textAlign="center">
+    <div className="min-w-[200px] text-center">
       {data.current ? (
-        <Box minWidth="200px" textAlign="center" p={2} fontSize="11px">
-          {fileName}
-        </Box>
+        <div className="min-w-[200px] p-2 text-center text-[11px]">{fileName}</div>
       ) : (
         <DropZone onDrop={onDrop} />
       )}
-    </Box>
+    </div>
   );
 };
 
@@ -91,12 +89,10 @@ const PasteComponent = ({ id, data }) => {
   }, [value, type, id, updateNodeData, addLogs]);
 
   return (
-    <Box p={2}>
-      <FormLabel mb={1} color="silverDarken30">
-        Data type
-      </FormLabel>
-      <Select
-        mb={2}
+    <div className="p-2">
+      <Label className="mb-1 text-silver-darken30">Data type</Label>
+      <NativeSelect
+        wrapperClassName="mb-2"
         value={type}
         onChange={(e) => {
           setType(e.target.value);
@@ -108,19 +104,17 @@ const PasteComponent = ({ id, data }) => {
             {option.toUpperCase()}
           </option>
         ))}
-      </Select>
+      </NativeSelect>
       <Textarea
         placeholder="Paste data here…"
-        className="nodrag nowheel"
-        height={150}
-        width={250}
+        className="nodrag nowheel h-[150px] w-[250px]"
         value={value}
         onChange={(e) => {
           setValue(e.target.value);
           updateNodeData({ id, data: { inputValue: e.target.value } });
         }}
       />
-    </Box>
+    </div>
   );
 };
 
@@ -168,8 +162,8 @@ const ExampleDataComponent = ({ id, data }) => {
   }, [index, id, updateNodeData]);
 
   return (
-    <Box p={2} width={200}>
-      <Select
+    <div className="w-[200px] p-2">
+      <NativeSelect
         value={index}
         onChange={(e) => {
           const next = Number(e.target.value);
@@ -182,11 +176,9 @@ const ExampleDataComponent = ({ id, data }) => {
             {example.name}
           </option>
         ))}
-      </Select>
-      <Box mt={2} color="comment">
-        Data Source: {EXAMPLES[index].source}
-      </Box>
-    </Box>
+      </NativeSelect>
+      <div className="mt-2 text-comment">Data Source: {EXAMPLES[index].source}</div>
+    </div>
   );
 };
 
@@ -213,10 +205,8 @@ const RequestComponent = ({ id }) => {
   };
 
   return (
-    <Box p={2} minWidth="300px">
-      <FormLabel mb={1} color="silverDarken30">
-        URL:
-      </FormLabel>
+    <div className="min-w-[300px] p-2">
+      <Label className="mb-1 text-silver-darken30">URL:</Label>
       <form onSubmit={submit}>
         <Input
           className="nodrag"
@@ -224,11 +214,11 @@ const RequestComponent = ({ id }) => {
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://…"
         />
-        <Button mt={2} type="submit" disabled={loading}>
+        <Button className="mt-2" type="submit" disabled={loading}>
           {loading ? "Loading…" : "Load Data"}
         </Button>
       </form>
-    </Box>
+    </div>
   );
 };
 
@@ -263,21 +253,17 @@ const SpreadsheetComponent = ({ id }) => {
   };
 
   return (
-    <Box p={2} minWidth="300px" position="relative">
-      <FormLabel mb={1} color="silverDarken30">
-        Google Sheet Id:
-      </FormLabel>
+    <div className="relative min-w-[300px] p-2">
+      <Label className="mb-1 text-silver-darken30">Google Sheet Id:</Label>
       <form onSubmit={load}>
         <Input className="nodrag" value={sheetId} onChange={(e) => setSheetId(e.target.value)} />
-        <Button mt={2} type="submit" disabled={loading}>
+        <Button className="mt-2" type="submit" disabled={loading}>
           {loading ? "Loading…" : "Load Data"}
         </Button>
       </form>
       {sheets.length > 0 && (
-        <Box mt={2}>
-          <Box mb={1} color="silverDarken30">
-            Active sheet:
-          </Box>
+        <div className="mt-2">
+          <div className="mb-1 text-silver-darken30">Active sheet:</div>
           {sheets.map((sheet) => (
             <label key={sheet} style={{ display: "block" }}>
               <input
@@ -289,10 +275,10 @@ const SpreadsheetComponent = ({ id }) => {
               {sheet}
             </label>
           ))}
-        </Box>
+        </div>
       )}
-      {loading && <Box position="absolute" inset={0} bg="rgba(0,0,0,0.25)" />}
-    </Box>
+      {loading && <div className="absolute inset-0 bg-[rgba(0,0,0,0.25)]" />}
+    </div>
   );
 };
 

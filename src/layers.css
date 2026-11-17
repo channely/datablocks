@@ -1,0 +1,6 @@
+/*
+ * Cascade layer order, imported before any other stylesheet. @xyflow/react wraps its CSS in
+ * `@layer xyflow`; declaring it after Tailwind's `base` keeps preflight (`margin: 0`, …) from
+ * overriding React Flow defaults such as the 15px panel margin, while utilities still win.
+ */
+@layer theme, base, xyflow, components, utilities;

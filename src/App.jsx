@@ -4,7 +4,8 @@
  * `data` is provided by an embedder it is loaded instead and autosave is skipped.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Box, Button, Flex } from "@chakra-ui/react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useDropzone } from "react-dropzone";
 import { useHotkeys } from "react-hotkeys-hook";
 import { ReactFlowProvider, useReactFlow } from "@xyflow/react";
@@ -29,16 +30,7 @@ const AddBlock = () => {
     <Button
       data-testid="addblock"
       onClick={() => setModal({ type: "library" })}
-      position="absolute"
-      zIndex={100}
-      top="10px"
-      left="10px"
-      fontSize="12px"
-      borderRadius="20px"
-      border="1px solid"
-      borderColor="violetLighten30"
-      background="bg.dark"
-      color="violetLighten85"
+      className="absolute top-[10px] left-[10px] z-[100] rounded-[20px] border border-violet-lighten30 bg-bg-dark text-[12px] text-violet-lighten85 hover:bg-bg-lighter"
     >
       + block
     </Button>
@@ -82,18 +74,14 @@ const DropZoneWrapper = ({ children }) => {
   });
 
   return (
-    <Flex
+    <div
       {...getRootProps()}
-      flexDirection="column"
-      height="100%"
-      bg="bg.dark"
-      flexGrow={1}
-      opacity={isDragActive ? 0.9 : 1}
+      className={cn("flex h-full grow flex-col bg-bg-dark", isDragActive && "opacity-90")}
     >
       <input {...getInputProps()} />
       <Library />
       {children}
-    </Flex>
+    </div>
   );
 };
 
@@ -219,63 +207,34 @@ const AppInner = ({
   );
 
   return (
-    <Box position="relative" overflow="hidden" height="100%">
-      <Flex flexDirection="column" flexGrow={1} height="100%">
+    <div className="relative h-full overflow-hidden">
+      <div className="flex h-full grow flex-col">
         <Header onFlowTitleChange={onFlowTitleChange} />
-        <Box
-          height="65%"
-          resize="vertical"
-          overflow="auto"
-          flexShrink={0}
-          position="relative"
-          minHeight="150px"
-        >
+        <div className="relative h-[65%] min-h-[150px] shrink-0 resize-y overflow-auto">
           {!loading && !restoring && <AddBlock />}
           <DropZoneWrapper>
             {!loading && <FlowView />}
             {restoring && (
-              <Box
-                position="absolute"
-                inset={0}
-                bg="bg.dark"
-                zIndex={90}
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-                color="silverDarken15"
-              >
+              <div className="absolute inset-0 z-[90] flex items-center justify-center bg-bg-dark text-silver-darken15">
                 Restoring session…
-              </Box>
+              </div>
             )}
           </DropZoneWrapper>
-        </Box>
-        <Flex
-          flexGrow={1}
-          bg="bg.dark"
-          borderTop="1px solid"
-          borderTopColor="bg.light"
-          height="100%"
-        >
-          <Flex flexDirection="column" flexGrow={1} width="100%" height="100%" bg="bg.dark">
+        </div>
+        <div className="flex h-full grow border-t border-bg-light bg-bg-dark">
+          <div className="flex h-full w-full grow flex-col bg-bg-dark">
             <DataView data={selectedData} type={selectedType} dataId={selectedCurrent} />
-          </Flex>
-          <Flex
-            height="100%"
-            width="40%"
-            maxWidth="500px"
-            flexDirection="column"
-            borderLeft="1px solid"
-            borderLeftColor="bg.light"
-          >
+          </div>
+          <div className="flex h-full w-[40%] max-w-[500px] flex-col border-l border-bg-light">
             <Panel borderBottom>
               <SectionLabel>Logs</SectionLabel>
             </Panel>
             <Terminal />
-          </Flex>
-        </Flex>
-      </Flex>
+          </div>
+        </div>
+      </div>
       <FlowLibrary />
-    </Box>
+    </div>
   );
 };
 

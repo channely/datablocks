@@ -6,17 +6,10 @@
  * backend or account. Import validation and error reporting live in the store/commands layer.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Box,
-  Button,
-  Flex,
-  Input,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalOverlay,
-} from "@chakra-ui/react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogBody, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import useStore from "../store";
 import SectionLabel from "./SectionLabel";
 import { useFlowCommands } from "../hooks/useFlowCommands";
@@ -46,17 +39,13 @@ const FlowRow = ({ flow, onOpen, onRename, onDuplicate, onExport, onDelete }) =>
   };
 
   return (
-    <Box
-      display="flex"
-      alignItems="center"
-      py={3}
-      borderBottom="1px solid"
-      borderColor="bg.light"
+    <div
+      className="flex items-center border-b border-solid border-bg-light py-3"
       data-testid={`flow-row-${flow.id}`}
     >
-      <Box flexGrow={1} minWidth={0}>
+      <div className="min-w-0 grow">
         {editing ? (
-          <Box as="form" display="flex" onSubmit={submit}>
+          <form className="flex" onSubmit={submit}>
             <Input
               ref={inputRef}
               value={draft}
@@ -70,13 +59,13 @@ const FlowRow = ({ flow, onOpen, onRename, onDuplicate, onExport, onDelete }) =>
               size="sm"
               data-testid="flow-rename-input"
             />
-            <Button type="submit" size="sm" ml={2}>
+            <Button type="submit" size="sm" className="ml-2">
               Save
             </Button>
             <Button
               type="button"
               size="sm"
-              ml={1}
+              className="ml-1"
               onClick={() => {
                 setEditing(false);
                 setDraft(flow.title);
@@ -84,29 +73,37 @@ const FlowRow = ({ flow, onOpen, onRename, onDuplicate, onExport, onDelete }) =>
             >
               Cancel
             </Button>
-          </Box>
+          </form>
         ) : (
           <>
-            <Box fontWeight={700} isTruncated>
-              {flow.title}
-            </Box>
-            <Box fontSize="11px" color="silverDarken15">
+            <div className="truncate font-bold">{flow.title}</div>
+            <div className="text-[11px] text-silver-darken15">
               {flow.nodeCount} nodes · updated {formatDate(flow.updatedAt)}
-            </Box>
+            </div>
           </>
         )}
-      </Box>
+      </div>
       {!editing && (
-        <Flex flexShrink={0}>
-          <Button size="xs" ml={2} onClick={() => onOpen(flow.id)} data-testid="flow-open">
+        <div className="flex shrink-0">
+          <Button
+            size="xs"
+            className="ml-2"
+            onClick={() => onOpen(flow.id)}
+            data-testid="flow-open"
+          >
             Open
           </Button>
-          <Button size="xs" ml={1} onClick={() => setEditing(true)} data-testid="flow-rename">
+          <Button
+            size="xs"
+            className="ml-1"
+            onClick={() => setEditing(true)}
+            data-testid="flow-rename"
+          >
             Rename
           </Button>
           <Button
             size="xs"
-            ml={1}
+            className="ml-1"
             onClick={() => onDuplicate(flow.id)}
             data-testid="flow-duplicate"
           >
@@ -114,18 +111,23 @@ const FlowRow = ({ flow, onOpen, onRename, onDuplicate, onExport, onDelete }) =>
           </Button>
           <Button
             size="xs"
-            ml={1}
+            className="ml-1"
             onClick={() => onExport(flow.id, flow.title)}
             data-testid="flow-export"
           >
             Export
           </Button>
-          <Button size="xs" ml={1} onClick={() => onDelete(flow)} data-testid="flow-delete">
+          <Button
+            size="xs"
+            className="ml-1"
+            onClick={() => onDelete(flow)}
+            data-testid="flow-delete"
+          >
             Delete
           </Button>
-        </Flex>
+        </div>
       )}
-    </Box>
+    </div>
   );
 };
 
@@ -210,22 +212,12 @@ const FlowLibraryModal = () => {
   };
 
   return (
-    <Modal
-      scrollBehavior="inside"
-      size="5xl"
-      isOpen
-      onClose={() => setModal(null)}
-      data-testid="flow-library"
-    >
-      <ModalOverlay />
-      <ModalContent bg="bg.grey">
-        <ModalCloseButton />
-        <ModalBody py={4}>
+    <Dialog open onOpenChange={(open) => !open && setModal(null)}>
+      <DialogContent className="max-w-[64rem]" data-testid="flow-library">
+        <DialogBody className="py-4">
           {/* Right padding keeps the import button clear of the modal close button. */}
-          <Flex alignItems="center" mb={3} pr={8}>
-            <Box fontSize="2xl" fontWeight="bold" flexGrow={1}>
-              Your flows
-            </Box>
+          <div className="mb-3 flex items-center pr-8">
+            <DialogTitle className="grow">Your flows</DialogTitle>
             <Button
               size="sm"
               onClick={() => fileInputRef.current?.click()}
@@ -240,19 +232,17 @@ const FlowLibraryModal = () => {
               style={{ display: "none" }}
               onChange={onImportChange}
             />
-          </Flex>
+          </div>
           <SectionLabel>
             Stored in this browser only. Export a flow to share it or move it to another device.
           </SectionLabel>
-          <Box mt={3}>
+          <div className="mt-3">
             {loading ? (
-              <Box color="silverDarken15" py={4}>
-                Loading…
-              </Box>
+              <div className="py-4 text-silver-darken15">Loading…</div>
             ) : flows.length === 0 ? (
-              <Box color="silverDarken15" py={4}>
+              <div className="py-4 text-silver-darken15">
                 No saved flows yet. Use File → Save (Ctrl/Cmd+S) to add the current canvas.
-              </Box>
+              </div>
             ) : (
               flows.map((flow) => (
                 <FlowRow
@@ -266,23 +256,24 @@ const FlowLibraryModal = () => {
                 />
               ))
             )}
-          </Box>
+          </div>
           {estimate && (
-            <Box
-              mt={4}
-              fontSize="11px"
-              color={estimate.ratio >= STORAGE_WARN_RATIO ? "orange.300" : "silverDarken15"}
+            <div
+              className={cn(
+                "mt-4 text-[11px]",
+                estimate.ratio >= STORAGE_WARN_RATIO ? "text-[#f6ad55]" : "text-silver-darken15",
+              )}
               data-testid="storage-estimate"
             >
               Browser storage: {formatBytes(estimate.usage)} used of {formatBytes(estimate.quota)} (
               {(estimate.ratio * 100).toFixed(1)}%)
               {estimate.ratio >= STORAGE_WARN_RATIO &&
                 " — almost full; export and delete old flows."}
-            </Box>
+            </div>
           )}
-        </ModalBody>
-      </ModalContent>
-    </Modal>
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
   );
 };
 

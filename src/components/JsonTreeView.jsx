@@ -3,21 +3,14 @@
  * reference demo's output rendering.
  */
 import { memo } from "react";
-import { Box } from "@chakra-ui/react";
 import { JSONTree } from "react-json-tree";
 
 const JsonTreeView = memo(({ data = {} }) => (
-  <Box
-    height="100%"
-    fontFamily="mono"
-    position="relative"
-    overflow="auto"
-    data-testid="jsontreeview"
-  >
-    <Box position="absolute" left={0} top={0} right={0} bottom={0}>
+  <div className="relative h-full overflow-auto font-mono" data-testid="jsontreeview">
+    <div className="absolute inset-0">
       <JSONTree data={data} />
-    </Box>
-  </Box>
+    </div>
+  </div>
 ));
 JsonTreeView.displayName = "JSONTreeView";
 

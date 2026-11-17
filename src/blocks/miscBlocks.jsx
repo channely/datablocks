@@ -5,7 +5,9 @@
  * before it reaches `dangerouslySetInnerHTML`. Keep that boundary if the renderer changes.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Box, Button, Flex, Textarea } from "@chakra-ui/react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { min, max, mean, median, sum } from "d3-array";
 import DOMPurify from "dompurify";
 import useStore from "../store";
@@ -16,6 +18,7 @@ import { getExportFormats } from "../lib/exporters";
 import ColumnSelect from "../components/ColumnSelect";
 import { PencilIcon, EyeIcon, XIcon } from "../components/icons";
 import { withNodeWrapper } from "../components/NodeWrapper";
+import "./markdown.css";
 
 /* ---------------------------------- Stats ---------------------------------- */
 
@@ -41,14 +44,14 @@ const StatsTable = ({ column, data }) => {
   );
   if (!values) return null;
   return (
-    <Box>
+    <div>
       {values.map(([name, value]) => (
-        <Flex justifyContent="space-between" py={2} key={name}>
-          <Box pr={2}>{name}</Box>
-          <Box fontWeight="bold">{value}</Box>
-        </Flex>
+        <div className="flex justify-between py-2" key={name}>
+          <div className="pr-2">{name}</div>
+          <div className="font-bold">{value}</div>
+        </div>
       ))}
-    </Box>
+    </div>
   );
 };
 
@@ -72,7 +75,7 @@ const StatsComponent = ({ id, data }) => {
   );
 
   return (
-    <Box minWidth={200} p={2}>
+    <div className="min-w-[200px] p-2">
       <ColumnSelect
         onChange={onChange}
         onChangeData={onChangeData}
@@ -82,23 +85,13 @@ const StatsComponent = ({ id, data }) => {
         inputValid={valid}
       />
       <StatsTable column={column} data={input} />
-    </Box>
+    </div>
   );
 };
 StatsComponent.displayName = "Stats";
 export const Stats = withNodeWrapper(StatsComponent);
 
 /* -------------------------------- Markdown --------------------------------- */
-
-const MARKDOWN_STYLES = {
-  p: { margin: "0.5rem 0" },
-  h1: { margin: "0.8rem 0", fontSize: "20px", fontWeight: 700 },
-  h2: { margin: "0.5rem 0", fontSize: "18px", fontWeight: 700 },
-  "h3, h4, h4, h6": { margin: "0.25rem 0", fontSize: "16px", fontWeight: 700 },
-  "ul, ol": { paddingLeft: "20px" },
-};
-
-const HOVER_STYLES = { ".toggle-wrapper": { display: "flex" } };
 
 const SHOWDOWN_OPTIONS = {
   tables: true,
@@ -150,31 +143,23 @@ export const Markdown = ({ id, data }) => {
   const remove = useCallback(() => removeElements([{ id }]), [removeElements, id]);
 
   return (
-    <Box width="300px" _hover={HOVER_STYLES} className={write ? "nodrag" : ""} position="relative">
+    <div className={cn("relative w-[300px] [&:hover_.toggle-wrapper]:flex", write ? "nodrag" : "")}>
       {write ? (
         <Textarea
-          bg="white"
-          height="200px"
-          resize="vertical"
-          color="black"
-          p={2}
+          className="h-[200px] resize-y rounded-[1px] border-none bg-white p-2 text-black"
           onChange={onChange}
-          borderRadius="1px"
-          border="none"
           value={inputValue}
         />
       ) : (
         // `html` comes from sanitizeHtml (DOMPurify) above.
         // eslint-disable-next-line @eslint-react/dom-no-dangerously-set-innerhtml
-        <Box lineHeight={1.4} sx={MARKDOWN_STYLES} dangerouslySetInnerHTML={{ __html: html }} />
+        <div className="markdown-body leading-[1.4]" dangerouslySetInnerHTML={{ __html: html }} />
       )}
-      <Flex
-        position="absolute"
-        top={0}
-        right={0}
-        display="none"
-        className="toggle-wrapper"
-        color={write ? "black" : "white"}
+      <div
+        className={cn(
+          "toggle-wrapper absolute top-0 right-0 hidden",
+          write ? "text-black" : "text-white",
+        )}
       >
         <Button onClick={remove} data-testid="remove">
           <XIcon />
@@ -186,8 +171,8 @@ export const Markdown = ({ id, data }) => {
             <PencilIcon size={12} data-testid="edit" />
           )}
         </Button>
-      </Flex>
-    </Box>
+      </div>
+    </div>
   );
 };
 Markdown.displayName = "MarkdownNode";
@@ -201,21 +186,20 @@ const ExportComponent = ({ id }) => {
   useUpdateNodeCurrent(id, current);
 
   return (
-    <Box p={2} minWidth={200}>
+    <div className="min-w-[200px] p-2">
       {current
         ? formats.map((format, index) => (
-            <Box key={format.filetype}>
+            <div key={format.filetype}>
               <Button
                 onClick={() => format.handler(current, type)}
-                width="100%"
-                mb={index < formats.length - 1 ? 1 : 0}
+                className={cn("w-full", index < formats.length - 1 ? "mb-1" : "mb-0")}
               >
                 Download {format.filetype}
               </Button>
-            </Box>
+            </div>
           ))
         : "← connect data…"}
-    </Box>
+    </div>
   );
 };
 ExportComponent.displayName = "Export";

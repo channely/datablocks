@@ -3,12 +3,13 @@
  * console-feed; supported commands are `help`, `intro`, `stats`, and `clear`.
  */
 import { memo, useEffect } from "react";
-import { Box, Flex, Input, useTheme } from "@chakra-ui/react";
+import { Input } from "@/components/ui/input";
 import { Console, Decode, Hook, Unhook } from "console-feed";
 import useStore from "../store";
 import execution from "../lib/execution";
 import dataStore from "../lib/dataStore";
 import { getPerfSnapshot } from "../lib/perf";
+import { fonts } from "../lib/themeTokens";
 
 /** Snapshot printed by the `stats` command; also the observation point for benchmarks and E2E. */
 const collectStats = () => {
@@ -23,7 +24,6 @@ const collectStats = () => {
 };
 
 const ConsoleComponent = memo(({ logs, addLogs }) => {
-  const theme = useTheme();
   // Mirror the execution iframe's console into the terminal for as long as it is mounted.
   useEffect(() => {
     if (!execution.iFrame) return undefined;
@@ -31,9 +31,9 @@ const ConsoleComponent = memo(({ logs, addLogs }) => {
     return () => Unhook(hooked);
   }, [addLogs]);
   return (
-    <Box>
-      <Console styles={{ BASE_FONT_FAMILY: theme.fonts.mono }} logs={logs} variant="dark" />
-    </Box>
+    <div>
+      <Console styles={{ BASE_FONT_FAMILY: fonts.mono }} logs={logs} variant="dark" />
+    </div>
   );
 });
 ConsoleComponent.displayName = "ConsoleComponent";
@@ -59,21 +59,13 @@ const Terminal = memo(() => {
   const loadFlow = useStore((state) => state.loadFlow);
 
   return (
-    <Flex flexDirection="column" flexGrow={1} overflow="hidden" data-testid="terminal">
-      <Box bg="bg.dark" overflowY="auto" flexGrow={1} position="relative">
-        <Box
-          position="absolute"
-          left={0}
-          top={0}
-          bottom={0}
-          right={0}
-          data-testid="terminal__output"
-        >
+    <div className="flex grow flex-col overflow-hidden" data-testid="terminal">
+      <div className="relative grow overflow-y-auto bg-bg-dark">
+        <div className="absolute inset-0" data-testid="terminal__output">
           <ConsoleComponent logs={logs} addLogs={addLogs} />
-        </Box>
-      </Box>
-      <Box
-        as="form"
+        </div>
+      </div>
+      <form
         autoComplete="off"
         onSubmit={(e) => {
           e.preventDefault();
@@ -107,15 +99,11 @@ const Terminal = memo(() => {
         <Input
           placeholder="type 'help' to see the commands"
           name="input"
-          border="none"
           data-testid="terminal__input"
-          borderRadius={0}
-          boxShadow="none"
-          borderTop="none"
-          _focus={{ outline: "none" }}
+          className="rounded-none border-0 shadow-none focus-visible:shadow-none focus-visible:outline-none"
         />
-      </Box>
-    </Flex>
+      </form>
+    </div>
   );
 });
 Terminal.displayName = "Terminal";

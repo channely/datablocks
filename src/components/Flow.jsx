@@ -3,7 +3,6 @@
  * forwards changes, selection, and canvas interactions (context-menu library, minimap, layout).
  */
 import { memo, useCallback, useMemo } from "react";
-import { Box, Flex, useTheme } from "@chakra-ui/react";
 import { Background, ControlButton, Controls, MiniMap, ReactFlow } from "@xyflow/react";
 import useStore from "../store";
 import { getNodeTypes } from "../blocks/registry";
@@ -12,11 +11,12 @@ import { isNode } from "../lib/flowSerialization";
 import { useAutoLayout } from "../hooks/useFlowCommands";
 import Edge from "./Edge";
 import { LayoutIcon } from "./icons";
+import { colors } from "../lib/themeTokens";
 
 const edgeTypes = { default: Edge };
+const MINIMAP_STYLE = { background: colors.bg.dark, height: 100 };
 
 export const Flow = memo(() => {
-  const theme = useTheme();
   const nodes = useStore((state) => state.nodes);
   const edges = useStore((state) => state.edges);
   const onNodesChange = useStore((state) => state.onNodesChange);
@@ -63,51 +63,8 @@ export const Flow = memo(() => {
     [setModal],
   );
 
-  const minimapStyle = useMemo(() => ({ background: theme.colors.bg.dark, height: 100 }), [theme]);
-
   return (
-    <Box
-      width="100%"
-      height="100%"
-      sx={{
-        // react-flow-renderer placed controls/minimap 20px from the bottom; panels now use a margin.
-        ".react-flow__controls, .react-flow__minimap": { marginBottom: "20px" },
-        ".react-flow__controls-button": {
-          // @xyflow/react sizes buttons with border-box; keep react-flow-renderer's 22px box.
-          boxSizing: "content-box",
-          padding: "5px",
-          width: "12px",
-          height: "12px",
-          background: theme.colors.bg.grey,
-          borderBottom: "1px solid rgba(226, 232, 240, 0.2)",
-          "&:last-child": { border: "none" },
-          path: { fill: theme.colors.text },
-        },
-        ".react-flow__grid path": { fill: "#777" },
-        ".react-flow__edge .react-flow__edge-path": { strokeWidth: 2 },
-        ".react-flow__edge.selected .react-flow__edge-path, .react-flow__edge:hover .react-flow__edge-path":
-          {
-            stroke: "white",
-          },
-        // Edges only take pointer events on their stroke (`visibleStroke`); the label's remove
-        // button needs its whole fill to be clickable.
-        ".react-flow__edge .react-flow__edge-label": { cursor: "pointer", pointerEvents: "all" },
-        ".react-flow__edge .react-flow__edge-text": {
-          fontSize: "20px",
-          textAnchor: "middle",
-          fill: "#fff",
-          pointerEvents: "none",
-        },
-        ".react-flow__edge.animated .react-flow__edge-label": { display: "none" },
-        ".react-flow__edge.animated.selected .react-flow__edge-label": { display: "block" },
-        ".react-flow__edge .react-flow__edge-label circle": {
-          fill: theme.colors.violetLighten15,
-        },
-        ".react-flow__edge .react-flow__edge-label:hover circle": {
-          fill: theme.colors.violetLighten30,
-        },
-      }}
-    >
+    <div className="relative h-full w-full">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -134,14 +91,10 @@ export const Flow = memo(() => {
             <LayoutIcon />
           </ControlButton>
         </Controls>
-        <MiniMap
-          maskColor="rgba(34,33,56,0.7)"
-          style={minimapStyle}
-          nodeColor={theme.colors.bg.light}
-        />
+        <MiniMap maskColor="rgba(34,33,56,0.7)" style={MINIMAP_STYLE} nodeColor={colors.bg.light} />
         <Background color="#343C43" />
       </ReactFlow>
-    </Box>
+    </div>
   );
 });
 Flow.displayName = "Flow";
@@ -149,14 +102,12 @@ Flow.displayName = "Flow";
 const FlowView = () => {
   const dropDownOpen = useStore((state) => state.dropDownOpen);
   return (
-    <Flex flex={1} width="100%" position="relative" bg="bg.dark" className="flowrapper">
-      <Box width="100%" height="100%" position="relative">
-        {dropDownOpen && (
-          <Box width="100%" height="100%" opacity={0} zIndex={999} position="absolute" />
-        )}
+    <div className="flowrapper relative flex w-full flex-1 bg-bg-dark">
+      <div className="relative h-full w-full">
+        {dropDownOpen && <div className="absolute z-[999] h-full w-full opacity-0" />}
         <Flow />
-      </Box>
-    </Flex>
+      </div>
+    </div>
   );
 };
 FlowView.displayName = "FlowView";

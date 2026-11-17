@@ -6,7 +6,7 @@
  * requires network access to Mapbox; the table toggle remains usable offline.
  */
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { Box, Button } from "@chakra-ui/react";
+import { Button } from "@/components/ui/button";
 import MapGL, { Layer, Source, WebMercatorViewport } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { TYPES, geoToRows } from "../lib/types";
@@ -86,7 +86,7 @@ const GeoViewMapboxGL = memo(({ data }) => {
   }, [data]);
 
   return (
-    <Box ref={ref} position="relative" overflow="hidden" height="100%">
+    <div ref={ref} className="relative h-full overflow-hidden">
       {viewport && (
         <MapGL
           {...viewport}
@@ -101,7 +101,7 @@ const GeoViewMapboxGL = memo(({ data }) => {
           </Source>
         </MapGL>
       )}
-    </Box>
+    </div>
   );
 });
 GeoViewMapboxGL.displayName = "GeoViewMapboxGL";
@@ -115,21 +115,17 @@ const GeoView = ({ data, type }) => {
   const [view, setView] = useState("geo");
 
   return (
-    <Box position="relative" height="100%">
-      <Box
-        position="absolute"
-        right="16px"
-        bottom="24px"
-        zIndex={1000}
-        sx={{ button: { fontWeight: 400 } }}
-      >
-        <Button onClick={() => setView("geo")} mr={2}>
+    <div className="relative h-full">
+      <div className="absolute right-[16px] bottom-[24px] z-[1000]">
+        <Button onClick={() => setView("geo")} className="mr-2 font-normal">
           Map View
         </Button>
-        <Button onClick={() => setView("data")}>Data View</Button>
-      </Box>
+        <Button onClick={() => setView("data")} className="font-normal">
+          Data View
+        </Button>
+      </div>
       {view === "geo" ? <GeoViewMapboxGL data={geojson} /> : <GridView data={rows} />}
-    </Box>
+    </div>
   );
 };
 

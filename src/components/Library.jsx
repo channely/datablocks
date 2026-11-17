@@ -3,16 +3,9 @@
  * search text; clicking an item creates a node and closes the modal.
  */
 import React, { useRef, useState } from "react";
-import {
-  Box,
-  Flex,
-  Input,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalOverlay,
-} from "@chakra-ui/react";
+import { Dialog, DialogBody, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { groupBy, uniq } from "lodash-es";
 import useStore from "../store";
 import { BLOCKS } from "../blocks/registry";
@@ -52,46 +45,32 @@ const BlockItem = ({ type, title, description, data, input, output, Icon }) => {
   const setModal = useStore((state) => state.setModal);
 
   return (
-    <Box
-      bg="bg.light"
-      p="10px"
-      cursor="pointer"
-      userSelect="none"
-      border="1px solid"
-      borderColor="bg.light"
-      color="text"
-      borderRadius="4px"
-      transform="scale(1)"
-      transition="transform 0.1s"
-      display="flex"
-      flexDirection="column"
-      _hover={{ color: "text", borderColor: "bg.lighter", transform: "scale(1.03)" }}
+    <div
+      className="blockitem flex scale-100 cursor-pointer flex-col rounded-[4px] border border-solid border-bg-light bg-bg-light p-[10px] text-text transition-transform duration-100 select-none hover:scale-[1.03] hover:border-bg-lighter hover:text-text"
       onClick={() => {
         addNode({ ...data });
         setModal(null);
       }}
       data-testid={`blockitem-${type}`}
-      className="blockitem"
     >
-      <Box fontSize="xl" fontWeight="bold" mb={2}>
+      <div className="mb-2 text-xl font-bold">
         {Icon && <Icon />} {title}
-      </Box>
-      <Box color="silverDarken15">{description}</Box>
-      <Box fontSize="12px" marginTop="auto" paddingTop="10px" color="silverDarken30">
-        <Box>Input: {typesLabel(input)}</Box>
-        <Box>Output: {typesLabel(output)}</Box>
-      </Box>
-    </Box>
+      </div>
+      <div className="text-silver-darken15">{description}</div>
+      <div className="mt-auto pt-[10px] text-[12px] text-silver-darken30">
+        <div>Input: {typesLabel(input)}</div>
+        <div>Output: {typesLabel(output)}</div>
+      </div>
+    </div>
   );
 };
 
 const GroupFilter = ({ isActive, children, ...props }) => (
   <Panel
-    paddingLeft={0}
-    cursor="pointer"
-    userSelect="none"
-    color={isActive ? "primary" : "text"}
-    _hover={{ color: "primary" }}
+    className={cn(
+      "cursor-pointer pl-0 select-none hover:text-primary",
+      isActive ? "text-primary" : "text-text",
+    )}
     {...props}
   >
     {children}
@@ -115,12 +94,10 @@ const BlockLibrary = ({ data = {} }) => {
   const grouped = groupBy(filtered, (block) => block.data?.group);
 
   return (
-    <Flex>
-      <Box flex="180px 0 0" py={3} pr={2}>
-        <Box fontSize="2xl" fontWeight="bold" mb={3}>
-          Block Library
-        </Box>
-        <Box mb={3}>
+    <div className="flex">
+      <div className="flex-[0_0_180px] py-3 pr-2">
+        <DialogTitle className="mb-3">Block Library</DialogTitle>
+        <div className="mb-3">
           <Input
             value={search}
             onChange={(e) => {
@@ -130,9 +107,9 @@ const BlockLibrary = ({ data = {} }) => {
             placeholder="Search..."
             ref={inputRef}
             data-testid="search"
-            width="100%"
+            className="w-full"
           />
-        </Box>
+        </div>
         {groups.map((group) => {
           const Icon = GROUP_ICONS[group];
           return (
@@ -143,36 +120,25 @@ const BlockLibrary = ({ data = {} }) => {
               key={group}
             >
               {Icon && (
-                <Box mr={2}>
+                <div className="mr-2">
                   <Icon />
-                </Box>
+                </div>
               )}
               <SectionLabel>{group}</SectionLabel>
             </GroupFilter>
           );
         })}
-      </Box>
-      <Box height="100%" flexGrow={1}>
+      </div>
+      <div className="h-full grow">
         {Object.entries(grouped).map(([group, blocks]) => (
           <React.Fragment key={group}>
-            <Flex
-              pt={4}
-              pb={2}
-              px={3}
-              className="blockgroup"
+            <div
+              className="blockgroup flex px-3 pt-4 pb-2"
               data-testid={`blockgroup-${kebab(group)}`}
             >
               <SectionLabel>{group}</SectionLabel>
-            </Flex>
-            <Box
-              p={3}
-              overflow="auto"
-              display="grid"
-              gridTemplateColumns="repeat(3, 200px)"
-              gridAutoRows="1fr"
-              gridColumnGap="15px"
-              gridRowGap="15px"
-            >
+            </div>
+            <div className="grid auto-rows-fr grid-cols-[repeat(3,200px)] gap-[15px] overflow-auto p-3">
               {blocks.map((block) => (
                 <BlockItem
                   key={block.type}
@@ -185,11 +151,11 @@ const BlockLibrary = ({ data = {} }) => {
                   output={block.output}
                 />
               ))}
-            </Box>
+            </div>
           </React.Fragment>
         ))}
-      </Box>
-    </Flex>
+      </div>
+    </div>
   );
 };
 
@@ -202,21 +168,13 @@ export const Library = () => {
 const LibraryModal = ({ data }) => {
   const setModal = useStore((state) => state.setModal);
   return (
-    <Modal
-      scrollBehavior="inside"
-      size="6xl"
-      isOpen
-      onClose={() => setModal(null)}
-      data-testid="modal-library"
-    >
-      <ModalOverlay />
-      <ModalContent bg="bg.grey">
-        <ModalCloseButton />
-        <ModalBody>
+    <Dialog open onOpenChange={(open) => !open && setModal(null)}>
+      <DialogContent className="max-w-[72rem]" data-testid="modal-library">
+        <DialogBody>
           <BlockLibrary data={data} />
-        </ModalBody>
-      </ModalContent>
-    </Modal>
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
   );
 };
 

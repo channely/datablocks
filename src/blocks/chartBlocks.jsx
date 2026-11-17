@@ -3,7 +3,9 @@
  * and forwards the input dataset downstream unchanged.
  */
 import { Suspense, lazy, useCallback, useEffect, useMemo } from "react";
-import { Box, Checkbox, Flex, FormLabel, useTheme } from "@chakra-ui/react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { colors, fonts } from "@/lib/themeTokens";
 import useStore from "../store";
 import useInputData from "../hooks/useInputData";
 import useUpdateNodeCurrent from "../hooks/useUpdateNodeCurrent";
@@ -15,24 +17,24 @@ const loadVegaChart = () => import("../components/VegaChart");
 const VegaChart = lazy(loadVegaChart);
 
 /**
- * Theme for chart blocks. Mounting any chart node also starts fetching the Vega runtime, so on
- * flow load the chunk downloads and parses while edges are still being connected instead of
- * after the first dataset arrives.
+ * Mounting any chart node starts fetching the Vega runtime, so on flow load the chunk downloads
+ * and parses while edges are still being connected instead of after the first dataset arrives.
  */
-const useChartTheme = () => {
+const usePreloadVegaChart = () => {
   useEffect(() => {
     loadVegaChart();
   }, []);
-  return useTheme();
 };
 
 /** Reserves the chart's footprint while the Vega runtime loads so the node does not jump. */
 const Chart = ({ spec, data }) => (
   <Suspense
     fallback={
-      <Box
-        width={`${(spec.width || 300) + 60}px`}
-        height={`${(spec.height || 150) + 50}px`}
+      <div
+        style={{
+          width: `${(spec.width || 300) + 60}px`,
+          height: `${(spec.height || 150) + 50}px`,
+        }}
         data-testid="chart-loading"
       />
     }
@@ -41,19 +43,19 @@ const Chart = ({ spec, data }) => (
   </Suspense>
 );
 
-const axisConfig = (theme) => ({
-  domainColor: theme.colors.bg.light,
-  gridColor: theme.colors.bg.light,
-  tickColor: theme.colors.bg.light,
-  labelColor: theme.colors.text,
+const axisConfig = () => ({
+  domainColor: colors.bg.light,
+  gridColor: colors.bg.light,
+  tickColor: colors.bg.light,
+  labelColor: colors.text,
   labelFontSize: 12,
-  titleColor: theme.colors.text,
+  titleColor: colors.text,
 });
 
-const baseConfig = (theme) => ({
-  background: theme.colors.bg.grey,
-  font: theme.fonts.body,
-  axis: axisConfig(theme),
+const baseConfig = () => ({
+  background: colors.bg.grey,
+  font: fonts.body,
+  axis: axisConfig(),
   view: { stroke: "transparent" },
 });
 
@@ -77,7 +79,7 @@ const useColumnSync = ({ id, current, valid, xColumn, yColumn, updateNodeData })
 /* --------------------------------- Barchart -------------------------------- */
 
 const BarChartComponent = ({ id, data, color }) => {
-  const theme = useChartTheme();
+  usePreloadVegaChart();
   const updateNodeData = useStore((state) => state.updateNodeData);
   const addLogs = useStore((state) => state.addLogs);
   const [current, , valid] = useInputData(id, [TYPES.DATASET]);
@@ -89,7 +91,7 @@ const BarChartComponent = ({ id, data, color }) => {
       width: isHorizontal ? 300 : 150,
       height: isHorizontal ? 150 : 300,
       mark: { type: "bar", color },
-      config: baseConfig(theme),
+      config: baseConfig(),
       encoding: {
         x: {
           field: xColumn,
@@ -100,7 +102,7 @@ const BarChartComponent = ({ id, data, color }) => {
       },
       data: { name: "data" },
     };
-  }, [color, valid, isHorizontal, xColumn, yColumn, theme]);
+  }, [color, valid, isHorizontal, xColumn, yColumn]);
 
   useEffect(() => {
     if (spec && !valid) {
@@ -111,7 +113,7 @@ const BarChartComponent = ({ id, data, color }) => {
   const vegaData = useMemo(() => ({ data: current }), [current]);
 
   const onHorizontalChange = useCallback(
-    (event) => updateNodeData({ id, data: { isHorizontal: event.target.checked } }),
+    (checked) => updateNodeData({ id, data: { isHorizontal: checked } }),
     [id, updateNodeData],
   );
   const onXChange = useCallback(
@@ -127,13 +129,11 @@ const BarChartComponent = ({ id, data, color }) => {
   useUpdateNodeCurrent(id, current);
 
   return (
-    <Box p={2} minWidth={200}>
+    <div className="min-w-[200px] p-2">
       {valid ? (
         <>
-          <Flex mb={2} width="100%" alignItems="center">
-            <Box marginRight="5px" flexShrink={0}>
-              x-axis
-            </Box>
+          <div className="mb-2 flex w-full items-center">
+            <div className="mr-[5px] shrink-0">x-axis</div>
             <ColumnSelect
               fromHandle={id}
               onChange={onXChange}
@@ -141,11 +141,9 @@ const BarChartComponent = ({ id, data, color }) => {
               inputData={current}
               inputValid={valid}
             />
-          </Flex>
-          <Flex mb={2} width="100%" alignItems="center">
-            <Box marginRight="5px" flexShrink={0}>
-              y-axis
-            </Box>
+          </div>
+          <div className="mb-2 flex w-full items-center">
+            <div className="mr-[5px] shrink-0">y-axis</div>
             <ColumnSelect
               fromHandle={id}
               onChange={onYChange}
@@ -153,17 +151,17 @@ const BarChartComponent = ({ id, data, color }) => {
               inputData={current}
               inputValid={valid}
             />
-          </Flex>
-          <FormLabel alignItems="center">
-            <Checkbox checked={isHorizontal} onChange={onHorizontalChange} />
+          </div>
+          <Label className="flex items-center">
+            <Checkbox checked={isHorizontal} onCheckedChange={onHorizontalChange} />
             horizontal
-          </FormLabel>
+          </Label>
         </>
       ) : (
         "← connect dataset"
       )}
-      <Box>{spec && <Chart spec={spec} data={vegaData} />}</Box>
-    </Box>
+      <div>{spec && <Chart spec={spec} data={vegaData} />}</div>
+    </div>
   );
 };
 BarChartComponent.displayName = "Barchart";
@@ -172,7 +170,7 @@ export const BarChart = withNodeWrapper(BarChartComponent);
 /* -------------------------------- Histogram -------------------------------- */
 
 const HistogramComponent = ({ id, data, color }) => {
-  const theme = useChartTheme();
+  usePreloadVegaChart();
   const updateNodeData = useStore((state) => state.updateNodeData);
   const addLogs = useStore((state) => state.addLogs);
   const [current, , valid] = useInputData(id, [TYPES.DATASET]);
@@ -184,14 +182,14 @@ const HistogramComponent = ({ id, data, color }) => {
       width: 300,
       height: 150,
       mark: { type: "bar", color },
-      config: { ...baseConfig(theme), countTitle: `count of ${column}` },
+      config: { ...baseConfig(), countTitle: `count of ${column}` },
       encoding: {
         x: { bin: { maxbins: 20 }, field: column, type: "quantitative" },
         y: { aggregate: "count", type: "quantitative" },
       },
       data: { name: "data" },
     };
-  }, [color, column, valid, current, theme]);
+  }, [color, column, valid, current]);
 
   useEffect(() => {
     if (!valid && current) {
@@ -213,19 +211,19 @@ const HistogramComponent = ({ id, data, color }) => {
   useUpdateNodeCurrent(id, current);
 
   return (
-    <Box p={2} minWidth={200} position="relative" textAlign="left">
+    <div className="relative min-w-[200px] p-2 text-left">
       <ColumnSelect
         onChange={onChange}
         onChangeData={onChangeData}
         fromHandle={id}
         color={color}
-        sx={{ mb: 1 }}
+        className="mb-1"
         value={column}
         inputData={current}
         inputValid={valid}
       />
       {spec && <Chart spec={spec} data={vegaData} />}
-    </Box>
+    </div>
   );
 };
 HistogramComponent.displayName = "Histogram";
@@ -234,7 +232,7 @@ export const Histogram = withNodeWrapper(HistogramComponent);
 /* -------------------------------- Scatterplot ------------------------------ */
 
 const ScatterplotComponent = ({ id, data, color }) => {
-  const theme = useChartTheme();
+  usePreloadVegaChart();
   const updateNodeData = useStore((state) => state.updateNodeData);
   const addLogs = useStore((state) => state.addLogs);
   const [current, , valid] = useInputData(id, [TYPES.DATASET]);
@@ -246,14 +244,14 @@ const ScatterplotComponent = ({ id, data, color }) => {
       width: 300,
       height: 150,
       mark: { type: "circle", color },
-      config: baseConfig(theme),
+      config: baseConfig(),
       encoding: {
         x: { field: xColumn, type: "quantitative" },
         y: { field: yColumn, type: "quantitative" },
       },
       data: { name: "data" },
     };
-  }, [color, valid, xColumn, yColumn, theme]);
+  }, [color, valid, xColumn, yColumn]);
 
   useEffect(() => {
     if (!valid && current) {
@@ -276,13 +274,11 @@ const ScatterplotComponent = ({ id, data, color }) => {
   useUpdateNodeCurrent(id, current);
 
   return (
-    <Box p={2} minWidth={200}>
+    <div className="min-w-[200px] p-2">
       {valid ? (
         <>
-          <Flex mb={2} width="100%" alignItems="center">
-            <Box marginRight="5px" flexShrink={0}>
-              x-axis
-            </Box>
+          <div className="mb-2 flex w-full items-center">
+            <div className="mr-[5px] shrink-0">x-axis</div>
             <ColumnSelect
               fromHandle={id}
               onChange={onXChange}
@@ -290,11 +286,9 @@ const ScatterplotComponent = ({ id, data, color }) => {
               inputData={current}
               inputValid={valid}
             />
-          </Flex>
-          <Flex mb={2} width="100%" alignItems="center">
-            <Box marginRight="5px" flexShrink={0}>
-              y-axis
-            </Box>
+          </div>
+          <div className="mb-2 flex w-full items-center">
+            <div className="mr-[5px] shrink-0">y-axis</div>
             <ColumnSelect
               fromHandle={id}
               onChange={onYChange}
@@ -302,13 +296,13 @@ const ScatterplotComponent = ({ id, data, color }) => {
               inputData={current}
               inputValid={valid}
             />
-          </Flex>
-          <Box>{spec && <Chart spec={spec} data={vegaData} />}</Box>
+          </div>
+          <div>{spec && <Chart spec={spec} data={vegaData} />}</div>
         </>
       ) : (
         "← connect dataset"
       )}
-    </Box>
+    </div>
   );
 };
 ScatterplotComponent.displayName = "Scatterplot";
@@ -317,7 +311,7 @@ export const Scatterplot = withNodeWrapper(ScatterplotComponent);
 /* -------------------------------- Timeseries ------------------------------- */
 
 const TimeseriesComponent = ({ id, data, color }) => {
-  const theme = useChartTheme();
+  usePreloadVegaChart();
   const updateNodeData = useStore((state) => state.updateNodeData);
   const addLogs = useStore((state) => state.addLogs);
   const [current, , valid] = useInputData(id, [TYPES.DATASET]);
@@ -329,7 +323,7 @@ const TimeseriesComponent = ({ id, data, color }) => {
       width: 300,
       height: 150,
       mark: { type: "line", color },
-      config: baseConfig(theme),
+      config: baseConfig(),
       transform: [xColumn && { as: "xcol", calculate: `toDate(toString(datum.${xColumn}))` }],
       encoding: {
         x: { field: "xcol", type: "temporal" },
@@ -337,7 +331,7 @@ const TimeseriesComponent = ({ id, data, color }) => {
       },
       data: { name: "data" },
     };
-  }, [color, valid, xColumn, yColumn, theme]);
+  }, [color, valid, xColumn, yColumn]);
 
   useEffect(() => {
     if (!valid && current) {
@@ -360,13 +354,11 @@ const TimeseriesComponent = ({ id, data, color }) => {
   useUpdateNodeCurrent(id, current);
 
   return (
-    <Box p={2} minWidth={200}>
+    <div className="min-w-[200px] p-2">
       {valid ? (
         <>
-          <Flex mb={2} width="100%" alignItems="center">
-            <Box marginRight="5px" flexShrink={0}>
-              x-axis
-            </Box>
+          <div className="mb-2 flex w-full items-center">
+            <div className="mr-[5px] shrink-0">x-axis</div>
             <ColumnSelect
               fromHandle={id}
               onChange={onXChange}
@@ -374,11 +366,9 @@ const TimeseriesComponent = ({ id, data, color }) => {
               inputData={current}
               inputValid={valid}
             />
-          </Flex>
-          <Flex mb={2} width="100%" alignItems="center">
-            <Box marginRight="5px" flexShrink={0}>
-              y-axis
-            </Box>
+          </div>
+          <div className="mb-2 flex w-full items-center">
+            <div className="mr-[5px] shrink-0">y-axis</div>
             <ColumnSelect
               fromHandle={id}
               onChange={onYChange}
@@ -386,13 +376,13 @@ const TimeseriesComponent = ({ id, data, color }) => {
               inputData={current}
               inputValid={valid}
             />
-          </Flex>
-          <Box>{spec && <Chart spec={spec} data={vegaData} />}</Box>
+          </div>
+          <div>{spec && <Chart spec={spec} data={vegaData} />}</div>
         </>
       ) : (
         "← connect dataset"
       )}
-    </Box>
+    </div>
   );
 };
 TimeseriesComponent.displayName = "Timeseries";

@@ -1,0 +1,215 @@
+/*
+ * Global styles and design tokens (Tailwind CSS v4 + shadcn/ui).
+ *
+ * The palette, 12px base size, and fonts reproduce the former Chakra theme so the app keeps the
+ * reference demo's look. Raw values for JavaScript consumers live in `src/lib/themeTokens.js`;
+ * keep both in sync (a unit test checks it). Fonts are loaded in `index.html` via %BASE_URL%.
+ *
+ * Tailwind's output is wrapped in cascade layers, while vendor CSS (React Flow, react-virtualized,
+ * Mapbox) is unlayered. Overrides of vendor classes therefore live in the unlayered section at the
+ * bottom of this file, not in utilities.
+ */
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "Source Code Pro", monospace;
+
+  /* Chakra-compatible type scale: xs/sm/md were 10/11/12px, everything inherits line-height 1.5. */
+  --text-xs: 10px;
+  --text-xs--line-height: 1.5;
+  --text-sm: 11px;
+  --text-sm--line-height: 1.5;
+  --text-md: 12px;
+  --text-md--line-height: 1.5;
+  --text-lg--line-height: 1.5;
+  --text-xl--line-height: 1.5;
+  --text-2xl--line-height: 1.5;
+
+  /* Palette (mirrors src/lib/themeTokens.js). */
+  --color-text: #f8f8f2;
+  --color-primary: #ff0072;
+  --color-bg-black: #000;
+  --color-bg-dark: #1a192b;
+  --color-bg-grey: #222138;
+  --color-bg-light: #333154;
+  --color-bg-lighter: #4c497e;
+  --color-handle: #403f69;
+  --color-handle-hover: #6866ac;
+  --color-block: #7371b5;
+  --color-silver: #eef0f2;
+  --color-silver-darken15: #c5cbd2;
+  --color-silver-darken30: #9ca8b3;
+  --color-comment: #6272a4;
+  --color-violet-lighten15: #2c2b45;
+  --color-violet-lighten30: #3c3a63;
+  --color-violet-lighten85: #d4d3e8;
+  --color-gray: #8f8f8f;
+  /* Chakra's pink.500, used for checked checkboxes. */
+  --color-checkbox: #d53f8c;
+}
+
+/* shadcn/ui semantic tokens, mapped onto the palette (the app is dark-only). */
+:root {
+  --background: #000;
+  --foreground: #f8f8f2;
+  --card: #222138;
+  --card-foreground: #f8f8f2;
+  --popover: #222138;
+  --popover-foreground: #f8f8f2;
+  --primary-foreground: #fff;
+  --secondary: rgb(255 255 255 / 0.08);
+  --secondary-foreground: #f8f8f2;
+  --muted: #333154;
+  --muted-foreground: #c5cbd2;
+  --accent: #333154;
+  --accent-foreground: #f8f8f2;
+  --destructive: #e53e3e;
+  --border: #333154;
+  --input: rgb(255 255 255 / 0.16);
+  --ring: #ff0072;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  html {
+    font-size: 12px;
+  }
+
+  body {
+    background: var(--color-bg-black);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #a0aec0;
+    opacity: 1;
+  }
+}
+
+/* ------------------------------------------------------------------------------------------ */
+/* Unlayered overrides for vendor CSS and global helpers (must beat unlayered vendor styles). */
+/* ------------------------------------------------------------------------------------------ */
+
+.react-flow__attribution {
+  display: none;
+}
+
+/* react-flow-renderer placed controls/minimap 20px from the bottom; @xyflow panels use a margin. */
+.react-flow__controls,
+.react-flow__minimap {
+  margin-bottom: 20px;
+}
+
+/* @xyflow/react sizes buttons with border-box; keep react-flow-renderer's 22px box. */
+.react-flow__controls .react-flow__controls-button {
+  box-sizing: content-box;
+  padding: 5px;
+  width: 12px;
+  height: 12px;
+  background: var(--color-bg-grey);
+  border-bottom: 1px solid rgb(226 232 240 / 0.2);
+}
+
+.react-flow__controls .react-flow__controls-button:last-child {
+  border: none;
+}
+
+.react-flow__controls .react-flow__controls-button path {
+  fill: var(--color-text);
+}
+
+.react-flow__grid path {
+  fill: #777;
+}
+
+.react-flow__edge .react-flow__edge-path {
+  stroke-width: 2;
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: white;
+}
+
+/* Edges only take pointer events on their stroke; the label's remove button needs its fill. */
+.react-flow__edge .react-flow__edge-label {
+  cursor: pointer;
+  pointer-events: all;
+}
+
+.react-flow__edge .react-flow__edge-text {
+  font-size: 20px;
+  text-anchor: middle;
+  fill: #fff;
+  pointer-events: none;
+}
+
+.react-flow__edge.animated .react-flow__edge-label {
+  display: none;
+}
+
+.react-flow__edge.animated.selected .react-flow__edge-label {
+  display: block;
+}
+
+.react-flow__edge .react-flow__edge-label circle {
+  fill: var(--color-violet-lighten15);
+}
+
+.react-flow__edge .react-flow__edge-label:hover circle {
+  fill: var(--color-violet-lighten30);
+}
+
+.ReactVirtualized__Grid {
+  font-size: 12px;
+  outline: none;
+}
+
+.js-handle {
+  left: -22px;
+  height: 20px;
+  width: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #403f69;
+  border: none;
+  border-radius: 10px 0 0 10px;
+}
+
+.codejar-editor {
+  line-height: 1.2;
+  overflow-y: visible !important;
+  cursor: default;
+  min-height: 1.2em;
+  outline: none;
+}

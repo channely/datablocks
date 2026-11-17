@@ -3,23 +3,24 @@
  * and reports dropped connections through `onChangeData` so blocks can recompute immediately.
  */
 import { memo, useCallback, useEffect, useMemo } from "react";
-import { Box, Select, useTheme } from "@chakra-ui/react";
+import { NativeSelect } from "@/components/ui/native-select";
+import { cn } from "@/lib/utils";
 import { Handle, Position } from "@xyflow/react";
 import { getColumnNames } from "../lib/types";
+import { colors } from "../lib/themeTokens";
 
 const ColumnSelect = ({
   onChange = () => {},
   onChangeData = null,
   fromHandle = false,
   color,
-  sx = {},
+  className,
   inputData = null,
   inputValid = false,
   value = "",
   handleId = null,
   noConnectionLabel = "← connect dataset…",
 }) => {
-  const theme = useTheme();
   const columns = useMemo(() => getColumnNames(inputData), [inputData]);
   const hasData = inputData && inputValid;
   const renderSelect = !fromHandle || hasData;
@@ -39,10 +40,10 @@ const ColumnSelect = ({
     [onChange],
   );
 
-  const colored = color || theme.colors?.block;
+  const colored = color || colors.block;
 
   return (
-    <Box position="relative" flex="1 1 100%" sx={sx}>
+    <div className={cn("relative flex-[1_1_100%]", className)}>
       {!fromHandle && (
         <Handle
           type="target"
@@ -62,7 +63,7 @@ const ColumnSelect = ({
         />
       )}
       {renderSelect ? (
-        <Select onChange={handleChange} value={value}>
+        <NativeSelect onChange={handleChange} value={value}>
           {hasData ? (
             columns.map((column) => (
               <option value={column} key={column}>
@@ -74,11 +75,11 @@ const ColumnSelect = ({
               {noConnectionLabel}
             </option>
           )}
-        </Select>
+        </NativeSelect>
       ) : (
         noConnectionLabel
       )}
-    </Box>
+    </div>
   );
 };
 

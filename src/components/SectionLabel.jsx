@@ -1,17 +1,13 @@
 /** Uppercase section heading used in panels and the library. */
-import { Box } from "@chakra-ui/react";
+import { cn } from "@/lib/utils";
 
-const SectionLabel = ({ children, ...props }) => (
-  <Box
-    fontSize="11px"
-    fontWeight={700}
-    textTransform="uppercase"
-    letterSpacing="0.13em"
-    lineHeight="1"
+const SectionLabel = ({ children, className, ...props }) => (
+  <div
+    className={cn("text-[11px] leading-none font-bold tracking-[0.13em] uppercase", className)}
     {...props}
   >
     {children}
-  </Box>
+  </div>
 );
 
 export default SectionLabel;

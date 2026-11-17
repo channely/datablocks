@@ -3,7 +3,9 @@
  * Clear are hidden in demo mode, matching the reference behavior.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Box, Button, Flex, Input } from "@chakra-ui/react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { useReactFlow } from "@xyflow/react";
 import useStore from "../store";
 import { CheckIcon, Logo, PencilIcon } from "./icons";
@@ -11,47 +13,32 @@ import Dropdown from "./Dropdown";
 import { useAutoLayout, useFlowCommands, useLoadAllNodes } from "../hooks/useFlowCommands";
 
 export const Header = ({ children, showDatablocksLabel = false }) => (
-  <Flex
-    alignItems="center"
-    borderBottom="1px solid"
-    borderColor="bg.light"
-    flexShrink={0}
-    width="100%"
-    bg="bg.dark"
-    padding="12px 16px"
+  <div
+    className="flex w-full shrink-0 items-center border-b border-solid border-bg-light bg-bg-dark px-[16px] py-[12px]"
     data-testid="header"
   >
     <a href={import.meta.env.BASE_URL}>
-      <Flex alignItems="center" userSelect="none" marginRight="10px">
+      <div className="mr-[10px] flex items-center select-none">
         <Logo />
-        {showDatablocksLabel && (
-          <Box fontWeight={700} fontSize="14px" color="silver">
-            datablocks
-          </Box>
-        )}
-      </Flex>
+        {showDatablocksLabel && <div className="text-[14px] font-bold text-silver">datablocks</div>}
+      </div>
     </a>
     {children}
-  </Flex>
+  </div>
 );
 
-export const HeaderMenu = ({ children }) => <Flex width="100%">{children}</Flex>;
+export const HeaderMenu = ({ children }) => <div className="flex w-full">{children}</div>;
 
-export const HeaderLabel = ({ children, ...props }) => (
-  <Box
-    color="text"
-    fontSize="11px"
-    marginRight="1em"
-    textTransform="uppercase"
-    letterSpacing="0.1em"
-    cursor="pointer"
-    userSelect="none"
-    textAlign="center"
-    _hover={{ color: "primary" }}
+export const HeaderLabel = ({ children, className, ...props }) => (
+  <div
+    className={cn(
+      "mr-[1em] cursor-pointer text-center text-[11px] tracking-[0.1em] text-text uppercase select-none hover:text-primary",
+      className,
+    )}
     {...props}
   >
     {children}
-  </Box>
+  </div>
 );
 
 const TitleEditor = ({ onFlowTitleChange }) => {
@@ -60,18 +47,6 @@ const TitleEditor = ({ onFlowTitleChange }) => {
   const setTitle = useStore((state) => state.setTitle);
   const inputRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
-
-  const hoverProps = demoMode
-    ? {}
-    : {
-        cursor: "pointer",
-        "& svg": {
-          position: "absolute",
-          display: "block !important",
-          right: 0,
-          top: 0,
-        },
-      };
 
   useEffect(() => {
     if (isEditing) inputRef.current.focus();
@@ -100,34 +75,11 @@ const TitleEditor = ({ onFlowTitleChange }) => {
   }, [demoMode]);
 
   return (
-    <Box
-      display="flex"
-      position="absolute"
-      left="50%"
-      transform="translate(-50%, 0)"
-      fontWeight={700}
-    >
+    <div className="absolute left-1/2 flex -translate-x-1/2 font-bold">
       {isEditing && !demoMode ? (
-        <Box
-          as="form"
+        <form
           onSubmit={submit}
-          display="flex"
-          marginBottom="5px"
-          flexGrow={1}
-          border="1px solid"
-          borderColor="silverDarken30"
-          borderRadius="2px"
-          overflow="hidden"
-          width="100%"
-          sx={{
-            input: {
-              fontWeight: 700,
-              width: "100%",
-              border: "none",
-              borderRadius: "2px 0 0 2px",
-              "&:focus": { outline: "none" },
-            },
-          }}
+          className="mb-[5px] flex w-full grow overflow-hidden rounded-[2px] border border-solid border-silver-darken30"
         >
           <Input
             type="text"
@@ -136,24 +88,27 @@ const TitleEditor = ({ onFlowTitleChange }) => {
             onClick={prevent}
             onBlur={submit}
             ref={inputRef}
+            className="w-full rounded-l-[2px] rounded-r-none border-0 font-bold shadow-none focus-visible:shadow-none focus-visible:outline-none"
           />
           <Button type="submit">
             <CheckIcon style={{ width: 16, height: 16 }} />
           </Button>
-        </Box>
+        </form>
       ) : (
-        <Box
-          position="relative"
-          padding="0 15px"
+        <div
+          className={cn("group relative px-[15px]", !demoMode && "cursor-pointer")}
           onClick={onTitleClick}
-          _hover={hoverProps}
-          sx={{ "& svg": { display: "none !important" } }}
         >
           {title}
-          {!demoMode && <PencilIcon style={{ width: 12, height: 12 }} />}
-        </Box>
+          {!demoMode && (
+            <PencilIcon
+              className="absolute top-0 right-0 hidden group-hover:block"
+              style={{ width: 12, height: 12 }}
+            />
+          )}
+        </div>
       )}
-    </Box>
+    </div>
   );
 };
 
@@ -201,7 +156,7 @@ const HeaderTools = ({ onFlowTitleChange }) => {
               { label: "Export flow", onSelect: () => exportFlow() },
               { label: "Clear", onSelect: clear },
             ]}
-            label={<HeaderLabel style={{ marginRight: 0 }}>File</HeaderLabel>}
+            label={<HeaderLabel className="mr-0">File</HeaderLabel>}
             testId="menu-file"
           />
         )}
@@ -219,7 +174,7 @@ const HeaderTools = ({ onFlowTitleChange }) => {
             { label: "Zoom Out", onSelect: zoomOut },
             { label: "All nodes", onSelect: loadAllNodes },
           ]}
-          label={<HeaderLabel style={{ marginRight: 0 }}>View</HeaderLabel>}
+          label={<HeaderLabel className="mr-0">View</HeaderLabel>}
           testId="menu-view"
         />
         <Dropdown
@@ -229,21 +184,21 @@ const HeaderTools = ({ onFlowTitleChange }) => {
               onSelect: () => loadFlow("introduction").catch(() => {}),
             },
           ]}
-          label={<HeaderLabel style={{ marginRight: 0 }}>Help</HeaderLabel>}
+          label={<HeaderLabel className="mr-0">Help</HeaderLabel>}
           testId="menu-help"
         />
-        <Flex ml="auto" alignItems="center">
+        <div className="ml-auto flex items-center">
           {!demoMode && statusLabel && (
-            <Box fontSize="11px" color="silverDarken15" mr="1em" data-testid="save-status">
+            <div className="mr-[1em] text-[11px] text-silver-darken15" data-testid="save-status">
               {statusLabel}
-            </Box>
+            </div>
           )}
-          <HeaderLabel style={{ marginRight: 0 }}>
+          <HeaderLabel className="mr-0">
             <a href="https://github.com/channely/datablocks" target="_blank" rel="noreferrer">
               GitHub
             </a>
           </HeaderLabel>
-        </Flex>
+        </div>
       </HeaderMenu>
       <input
         ref={fileInputRef}

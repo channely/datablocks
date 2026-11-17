@@ -3,16 +3,14 @@
  * exposes the matching export formats.
  */
 import { lazy, memo, Suspense } from "react";
+import { Button } from "@/components/ui/button";
 import {
-  Box,
-  Flex,
-  Menu,
-  MenuButton,
-  MenuItem,
-  MenuList,
-  Textarea,
-  Button,
-} from "@chakra-ui/react";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Textarea } from "@/components/ui/textarea";
 import { TYPES, formatValue } from "../lib/types";
 import { getExportFormats } from "../lib/exporters";
 import Panel from "./Panel";
@@ -27,18 +25,12 @@ export const SimpleTypeView = ({ data, type }) => {
   const value = formatValue({ data, type });
   const long = value.length > 64;
   return (
-    <Flex
-      alignItems="center"
-      justifyContent="center"
-      p={2}
-      sx={{
-        fontSize: long ? 14 : 70,
-        fontWeight: long ? 400 : 700,
-        height: "100%",
-      }}
+    <div
+      className="flex h-full items-center justify-center p-2"
+      style={{ fontSize: long ? 14 : 70, fontWeight: long ? 400 : 700 }}
     >
       {long ? <Textarea readOnly value={value} /> : value}
-    </Flex>
+    </div>
   );
 };
 SimpleTypeView.displayName = "SimpleTypeView";
@@ -51,22 +43,24 @@ export const OutputHeader = ({ data, type }) => {
   }));
   return (
     <Panel borderBottom>
-      <SectionLabel mr={2}>Output</SectionLabel>
+      <SectionLabel className="mr-2">Output</SectionLabel>
       {formats.length > 0 && (
-        <Menu>
-          <MenuButton as={Button} bg="bg.light" size="sm" px={2}>
-            <Flex alignItems="center">
-              Export <ChevronDownIcon style={{ width: 12, height: 12 }} />
-            </Flex>
-          </MenuButton>
-          <MenuList zIndex={1000}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" className="bg-bg-light px-2">
+              <span className="flex items-center">
+                Export <ChevronDownIcon style={{ width: 12, height: 12 }} />
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
             {formats.map((format) => (
-              <MenuItem onClick={format.onSelect} key={format.filetype + format.label}>
+              <DropdownMenuItem onSelect={format.onSelect} key={format.filetype + format.label}>
                 {format.label}
-              </MenuItem>
+              </DropdownMenuItem>
             ))}
-          </MenuList>
-        </Menu>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
     </Panel>
   );
@@ -93,11 +87,11 @@ const DataView = memo(({ data, type, dataId }) => {
   return (
     <>
       <OutputHeader data={data} type={type} />
-      <Box height="100%" data-testid="output-view">
+      <div className="h-full" data-testid="output-view">
         <Suspense fallback={<div />}>
           <View data={data} type={type} dataId={dataId} />
         </Suspense>
-      </Box>
+      </div>
     </>
   );
 });

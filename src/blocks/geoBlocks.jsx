@@ -3,7 +3,11 @@
  * Buffer and Simplify also keep their parameters in node data.
  */
 import { useCallback, useEffect, useMemo } from "react";
-import { Box, Button, FormLabel, Input, Select, Slider } from "@chakra-ui/react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Slider } from "@/components/ui/slider";
 import { feature as topojsonFeature } from "topojson-client";
 import { scalePow } from "d3-scale";
 import useStore from "../store";
@@ -56,22 +60,18 @@ const GeoTransform = ({
   useUpdateNodeCurrent(id, result);
 
   return (
-    <Box p={2} minWidth={200}>
+    <div className="min-w-[200px] p-2">
       {result !== null ? (
-        <Box
-          as="pre"
-          className="nodrag"
-          margin={0}
-          userSelect="all"
-          cursor="text"
+        <pre
+          className="nodrag m-0 cursor-text select-all"
           style={{ margin: 0, userSelect: "all", cursor: "text" }}
         >
           {format(isJsonOutput ? JSON.stringify(result, null, 2) : result)}
-        </Box>
+        </pre>
       ) : (
         "← connect geojson…"
       )}
-    </Box>
+    </div>
   );
 };
 
@@ -150,25 +150,21 @@ const BufferComponent = ({ id, data }) => {
   }, [id, input, valid, distance, updateNodeData, addLogs]);
 
   return (
-    <Box p={2} minWidth={200}>
+    <div className="min-w-[200px] p-2">
       {valid ? (
         <>
-          <FormLabel mb={1} color="silverDarken30">
-            Distance in kilometers
-          </FormLabel>
+          <Label className="mb-1 text-silver-darken30">Distance in kilometers</Label>
           <Input
             value={distance}
             onChange={onDistanceChange}
-            className="nodrag"
-            mb={2}
-            width="200px"
+            className="nodrag mb-2 w-[200px]"
             type="number"
           />
         </>
       ) : (
         "← connect geojson…"
       )}
-    </Box>
+    </div>
   );
 };
 BufferComponent.displayName = "Buffer";
@@ -208,23 +204,29 @@ const SimplifyComponent = ({ id, data }) => {
   }, [addLogs, presimplified, weight]);
 
   const onSliderChange = useCallback(
-    (value) => updateNodeData({ id, data: { sliderValue: value } }),
+    ([value]) => updateNodeData({ id, data: { sliderValue: value } }),
     [id, updateNodeData],
   );
 
   useUpdateNodeCurrent(id, result);
 
   return (
-    <Box p={2} minWidth={200}>
+    <div className="min-w-[200px] p-2">
       {result !== null ? (
-        <Box className="nodrag" px={2}>
-          <Slider min={0} max={1} step={1e-4} value={sliderValue} onChange={onSliderChange} />
+        <div className="nodrag px-2">
+          <Slider
+            min={0}
+            max={1}
+            step={1e-4}
+            value={[sliderValue ?? 1]}
+            onValueChange={onSliderChange}
+          />
           {(100 * weight).toFixed(3)}%
-        </Box>
+        </div>
       ) : (
         "← connect geojson…"
       )}
-    </Box>
+    </div>
   );
 };
 SimplifyComponent.displayName = "Simplify";
@@ -267,10 +269,8 @@ const DataToPointsComponent = ({ id, data }) => {
   }, [input, updateNodeData, id, lngColumn, latColumn]);
 
   return (
-    <Box p={2} minWidth={200}>
-      <FormLabel mb={1} mt={2} color="silverDarken30">
-        Longitude column:
-      </FormLabel>
+    <div className="min-w-[200px] p-2">
+      <Label className="mt-2 mb-1 text-silver-darken30">Longitude column:</Label>
       <ColumnSelect
         fromHandle={id}
         onChange={onLngChange}
@@ -279,9 +279,7 @@ const DataToPointsComponent = ({ id, data }) => {
         inputData={input}
         inputValid={valid}
       />
-      <FormLabel mb={1} mt={2} color="silverDarken30">
-        Latitude column:
-      </FormLabel>
+      <Label className="mt-2 mb-1 text-silver-darken30">Latitude column:</Label>
       <ColumnSelect
         fromHandle={id}
         onChange={onLatChange}
@@ -290,10 +288,10 @@ const DataToPointsComponent = ({ id, data }) => {
         inputData={input}
         inputValid={valid}
       />
-      <Button mt={2} onClick={run}>
+      <Button className="mt-2" onClick={run}>
         Run
       </Button>
-    </Box>
+    </div>
   );
 };
 DataToPointsComponent.displayName = "DataToPoints";
@@ -347,24 +345,22 @@ const TopoToGeoComponent = ({ id, data }) => {
   useUpdateNodeCurrent(id, result);
 
   return (
-    <Box p={2} minWidth={200}>
+    <div className="min-w-[200px] p-2">
       {layers ? (
-        <Box className="nodrag" px={2}>
-          <FormLabel mb={1} color="silverDarken30">
-            Layer:
-          </FormLabel>
-          <Select onChange={onLayerChange}>
+        <div className="nodrag px-2">
+          <Label className="mb-1 text-silver-darken30">Layer:</Label>
+          <NativeSelect onChange={onLayerChange}>
             {layers.map((value) => (
               <option value={value} key={value}>
                 {value}
               </option>
             ))}
-          </Select>
-        </Box>
+          </NativeSelect>
+        </div>
       ) : (
         "← connect topojson…"
       )}
-    </Box>
+    </div>
   );
 };
 TopoToGeoComponent.displayName = "TopoToGeo";

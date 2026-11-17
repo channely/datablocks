@@ -4,8 +4,9 @@
  * DataStore pointer (`data.current`) and injects the detected type before rendering.
  */
 import React, { memo, useMemo } from "react";
-import { Box, Flex, useTheme } from "@chakra-ui/react";
+import { cn } from "@/lib/utils";
 import useStore from "../store";
+import { colors } from "../lib/themeTokens";
 import useData from "../hooks/useData";
 import { formatValue, TYPES, getColumnNames } from "../lib/types";
 import { DragIndicatorIcon, XIcon } from "./icons";
@@ -35,18 +36,9 @@ const Summary = memo(({ data }) => {
   if (!summary) return null;
   const text = summary.length > 64 ? `${summary.substr(0, 64)}…` : summary;
   return (
-    <Box
-      fontSize="11px"
-      color="silverDarken15"
-      position="absolute"
-      bottom="-8px"
-      top="auto"
-      left={0}
-      transform="translateY(100%)"
-      whiteSpace="nowrap"
-    >
+    <div className="absolute top-auto -bottom-[8px] left-0 translate-y-full text-[11px] whitespace-nowrap text-silver-darken15">
       [{data.type}] {text}
-    </Box>
+    </div>
   );
 });
 Summary.displayName = "Summary";
@@ -69,21 +61,16 @@ class NodeErrorBoundary extends React.Component {
     const { children, nodeId } = this.props;
     if (this.state.hasError) {
       return (
-        <Box p={2}>
-          <Box color="red" mb={2}>
-            Something went wrong.
-          </Box>
-          <Box
-            as="button"
+        <div className="p-2">
+          <div className="mb-2 text-[red]">Something went wrong.</div>
+          <button
+            type="button"
             onClick={() => useStore.getState().removeElements([{ id: nodeId }])}
-            bg="bg.light"
-            _hover={{ bg: "bg.lighter" }}
-            px={2}
-            py={1}
+            className="bg-bg-light px-2 py-1 hover:bg-bg-lighter"
           >
             Remove Node
-          </Box>
-        </Box>
+          </button>
+        </div>
       );
     }
     return children;
@@ -105,47 +92,33 @@ export const NodeWrapper = memo(
     const selected = selectedNodeId === id;
     const remove = () => removeElements([{ id }]);
     return (
-      <Box
-        px={0}
-        py={0}
-        bg="bg.grey"
-        borderRadius={1}
-        borderColor={selected ? color : "bg.light"}
-        borderWidth="1px"
-        borderStyle="solid"
+      <div
+        className={cn(
+          "relative min-w-0 rounded-[1px] border border-solid bg-bg-grey p-0",
+          !selected && "border-bg-light",
+        )}
+        style={selected ? { borderColor: color } : undefined}
         data-testid={`node-${type}`}
-        position="relative"
-        minWidth="0"
       >
         <NodeErrorBoundary nodeId={id}>
-          <Flex
-            alignItems="center"
-            justifyContent="space-between"
-            p={2}
-            borderBottomColor="bg.light"
-            borderBottomWidth="1px"
-            borderBottomStyle="solid"
-          >
-            <Flex alignItems="center" fontSize="12px">
+          <div className="flex items-center justify-between border-b border-solid border-bg-light p-2">
+            <div className="flex items-center text-[12px]">
               <DragIndicatorIcon /> {data.label}
-            </Flex>
-            <Box
-              color="silver"
-              cursor="pointer"
-              opacity={0.25}
-              _hover={{ opacity: 1 }}
+            </div>
+            <div
+              className="cursor-pointer text-silver opacity-25 hover:opacity-100"
               onClick={remove}
               data-testid="node__remove"
             >
               <XIcon />
-            </Box>
-          </Flex>
+            </div>
+          </div>
           <Summary data={data} />
           {targetHandle && <TargetHandle color={color} position="left" id={id} />}
           {sourceHandle && <SourceHandle color={color} position="right" id={id} />}
-          <Box>{children}</Box>
+          <div>{children}</div>
         </NodeErrorBoundary>
-      </Box>
+      </div>
     );
   },
 );
@@ -156,15 +129,14 @@ export const withNodeWrapper = (Component, props = {}) => {
   return memo((nodeProps) => {
     const { data, type, id } = nodeProps;
     const [current, currentType] = useData(data?.current);
-    const theme = useTheme();
     // Stable unless the node's own data or value changes, so the memoized children skip drags.
     const nodeData = useMemo(
       () => ({ ...data, current, type: currentType }),
       [data, current, currentType],
     );
     return (
-      <NodeWrapper id={id} data={nodeData} type={type} color={theme.colors.block} {...props}>
-        <Inner id={id} data={nodeData} color={theme.colors.block} />
+      <NodeWrapper id={id} data={nodeData} type={type} color={colors.block} {...props}>
+        <Inner id={id} data={nodeData} color={colors.block} />
       </NodeWrapper>
     );
   });

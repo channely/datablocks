@@ -1,8 +1,15 @@
 /**
- * Header dropdown menu. Notifies the store while open so the canvas can block interactions
- * beneath the menu layer.
+ * Header dropdown menu (shadcn/ui DropdownMenu). Notifies the store while open so the canvas can
+ * block interactions beneath the menu layer.
  */
-import { Button, Menu, MenuButton, MenuItem, MenuList } from "@chakra-ui/react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import useStore from "../store";
 
 /** Stable test id for a menu item label, for example "Export flow" -> "menuitem-export-flow". */
@@ -12,31 +19,33 @@ const itemTestId = (label) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "")}`;
 
-const Dropdown = ({ items = [], label = "Dropdown", menuButtonProps = {}, testId }) => {
+const Dropdown = ({ items = [], label = "Dropdown", triggerClassName, testId }) => {
   const setDropDownOpen = useStore((state) => state.setDropDownOpen);
   return (
-    <Menu onOpen={() => setDropDownOpen(true)} onClose={() => setDropDownOpen(false)}>
-      <MenuButton
-        as={Button}
-        bg="transparent"
-        _active={{ outline: "none" }}
-        _focus={{ outline: "none" }}
-        className="dropdown-label"
-        textAlign="center"
-        px={2}
-        data-testid={testId}
-        {...menuButtonProps}
-      >
-        {label}
-      </MenuButton>
-      <MenuList zIndex={1000}>
+    <DropdownMenu onOpenChange={setDropDownOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          className={cn(
+            "dropdown-label bg-transparent px-2 text-center focus:outline-none",
+            triggerClassName,
+          )}
+          data-testid={testId}
+        >
+          {label}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
         {items.map((item) => (
-          <MenuItem onClick={item.onSelect} key={item.label} data-testid={itemTestId(item.label)}>
+          <DropdownMenuItem
+            onSelect={item.onSelect}
+            key={item.label}
+            data-testid={itemTestId(item.label)}
+          >
             {item.label}
-          </MenuItem>
+          </DropdownMenuItem>
         ))}
-      </MenuList>
-    </Menu>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 

@@ -6,7 +6,6 @@
  * `lib/execution`; geocoding sends the user-supplied key to the selected provider.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Box, Button, Flex, FormLabel, Input, Select } from "@chakra-ui/react";
 import { Handle, Position } from "@xyflow/react";
 import orderBy from "lodash-es/orderBy";
 import groupBy from "lodash-es/groupBy";
@@ -30,11 +29,16 @@ import {
 import execution from "../lib/execution";
 import ColumnSelect from "../components/ColumnSelect";
 import { withNodeWrapper } from "../components/NodeWrapper";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { cn } from "@/lib/utils";
 
 // Only the JavaScript grammar is needed; the full highlight.js bundle ships ~190 languages.
 hljs.registerLanguage("javascript", javascriptLanguage);
 
-const labelStyle = { mb: 1, color: "silverDarken30" };
+const labelClassName = "mb-1 text-silver-darken30";
 
 /* ---------------------------------- Filter --------------------------------- */
 
@@ -100,9 +104,9 @@ const ConditionSelect = ({ columnType, value, onChange }) => {
   }, [columnType]);
 
   return (
-    <Select value={value} onChange={onChange} mb={2}>
+    <NativeSelect value={value} onChange={onChange} wrapperClassName="mb-2">
       {options}
-    </Select>
+    </NativeSelect>
   );
 };
 
@@ -138,9 +142,9 @@ const FilterComponent = ({ id, data }) => {
   const runnable = current && columns;
 
   return (
-    <Flex width="250px" position="relative" textAlign="left" flexDirection="column">
-      <Box p={2}>
-        <FormLabel {...labelStyle}>Column name:</FormLabel>
+    <div className="relative flex w-[250px] flex-col text-left">
+      <div className="p-2">
+        <Label className={labelClassName}>Column name:</Label>
         <ColumnSelect
           onChange={(value) =>
             updateNodeData({
@@ -149,7 +153,7 @@ const FilterComponent = ({ id, data }) => {
             })
           }
           onChangeData={onColumnChangeData}
-          sx={{ mb: 1 }}
+          className="mb-1"
           handleId={id}
           value={column}
           inputData={input}
@@ -157,7 +161,7 @@ const FilterComponent = ({ id, data }) => {
         />
         {runnable && (
           <>
-            <FormLabel {...labelStyle}>Condition:</FormLabel>
+            <Label className={labelClassName}>Condition:</Label>
             <ConditionSelect
               columnType={columnType}
               value={conditionId}
@@ -183,9 +187,9 @@ const FilterComponent = ({ id, data }) => {
             )}
           </>
         )}
-      </Box>
+      </div>
       {runnable && <Button onClick={run}>Run</Button>}
-    </Flex>
+    </div>
   );
 };
 FilterComponent.displayName = "Filter";
@@ -272,12 +276,12 @@ const MergeComponent = ({ id, data, color }) => {
   );
 
   return (
-    <Box p={2} width="200px" position="relative" textAlign="left">
+    <div className="relative w-[200px] p-2 text-left">
       <ColumnSelect
         onChange={onBaseColumnChange}
         onChangeData={onBaseDataChange}
         color={color}
-        sx={{ mb: 1 }}
+        className="mb-1"
         handleId={baseHandle}
         value={baseColumn}
         inputData={baseRows}
@@ -292,10 +296,10 @@ const MergeComponent = ({ id, data, color }) => {
         inputData={insertRows}
         inputValid={insertValid}
       />
-      <Box mt={2} data-testid="merge-count">
+      <div className="mt-2" data-testid="merge-count">
         merged {merged.count} rows
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 };
 MergeComponent.displayName = "Merge";
@@ -328,19 +332,19 @@ const GroupComponent = ({ id, data, color }) => {
   );
 
   return (
-    <Box p={2} width={200}>
-      <FormLabel {...labelStyle}>Column name:</FormLabel>
+    <div className="w-[200px] p-2">
+      <Label className={labelClassName}>Column name:</Label>
       <ColumnSelect
         onChange={onChange}
         onChangeData={onChangeData}
         color={color}
-        sx={{ mb: 1 }}
+        className="mb-1"
         handleId={id}
         value={data.column}
         inputData={rows}
         inputValid={valid}
       />
-    </Box>
+    </div>
   );
 };
 GroupComponent.displayName = "Group";
@@ -391,36 +395,32 @@ const SliceComponent = ({ id, data }) => {
   }, [id, input, valid, updateNodeData]);
 
   return (
-    <Box p={2}>
+    <div className="p-2">
       {valid ? (
-        <Box>
-          <FormLabel {...labelStyle}>From index:</FormLabel>
+        <div>
+          <Label className={labelClassName}>From index:</Label>
           <Input
             type="number"
             onChange={onStartChange}
             value={startIndex}
-            className="nodrag"
+            className="nodrag min-w-[120px]"
             min={0}
             max={input.length}
-            minWidth={120}
           />
-          <FormLabel my={1} color="silverDarken30">
-            To index:
-          </FormLabel>
+          <Label className="my-1 text-silver-darken30">To index:</Label>
           <Input
             type="number"
             onChange={onEndChange}
             value={endIndex}
-            className="nodrag"
+            className="nodrag min-w-[120px]"
             min={0}
             max={input.length}
-            minWidth={120}
           />
-        </Box>
+        </div>
       ) : (
         "← connect dataset…"
       )}
-    </Box>
+    </div>
   );
 };
 SliceComponent.displayName = "Slice";
@@ -462,24 +462,24 @@ const SortComponent = ({ id, data, color }) => {
   );
 
   return (
-    <Box p={2} width={200}>
-      <FormLabel {...labelStyle}>Column name:</FormLabel>
+    <div className="w-[200px] p-2">
+      <Label className={labelClassName}>Column name:</Label>
       <ColumnSelect
         onChange={onColumnChange}
         onChangeData={onChangeData}
         color={color}
-        sx={{ mb: 1 }}
+        className="mb-1"
         handleId={sortHandle}
         value={column}
         inputData={input}
         inputValid={valid}
       />
-      <FormLabel {...labelStyle}>Order:</FormLabel>
-      <Select value={order} onChange={onOrderChange}>
+      <Label className={labelClassName}>Order:</Label>
+      <NativeSelect value={order} onChange={onOrderChange}>
         <option value="asc">Ascending</option>
         <option value="desc">Descending</option>
-      </Select>
-    </Box>
+      </NativeSelect>
+    </div>
   );
 };
 SortComponent.displayName = "Sort";
@@ -560,50 +560,45 @@ const RenameColumnsComponent = ({ id, data }) => {
   const canAdd = hasRows && inputs.length < columns.length;
 
   return (
-    <Flex width="250px" position="relative" textAlign="left" flexDirection="column">
-      <Box p={2}>
+    <div className="relative flex w-[250px] flex-col text-left">
+      <div className="p-2">
         {inputs.map((input, index) => (
           // Rename rows are positional (no stable id); index keys match that model.
           // eslint-disable-next-line @eslint-react/no-array-index-key
-          <Flex key={`select-${index}`} alignItems="flex-start">
-            <Box width="119px" marginRight="10px">
-              <Select
-                mb="5px"
-                width="119px"
+          <div key={`select-${index}`} className="flex items-start">
+            <div className="mr-[10px] w-[119px]">
+              <NativeSelect
+                wrapperClassName="mb-[5px] w-[119px]"
                 onChange={(event) => change(event.target.value, index, "old")}
                 value={input.old}
               >
                 {renderOptions(input.old)}
-              </Select>
-            </Box>
+              </NativeSelect>
+            </div>
             <Input
-              sx={{ height: 31, width: 109 }}
               placeholder="new name"
               value={input.new || ""}
               onChange={(event) => change(event.target.value, index, "new")}
-              className="nodrag"
+              className="nodrag h-[31px] w-[109px]"
             />
-          </Flex>
+          </div>
         ))}
         {canAdd && (
-          <Box
-            as="button"
-            lineHeight={1}
-            color="#bbb"
-            cursor="pointer"
+          <button
+            className="cursor-pointer leading-none text-[#bbb]"
             onClick={addColumn}
             title="rename another column"
           >
             + add another column
-          </Box>
+          </button>
         )}
-      </Box>
+      </div>
       {hasRows && (
-        <Button width="100%" onClick={run}>
+        <Button className="w-full" onClick={run}>
           Run
         </Button>
       )}
-    </Flex>
+    </div>
   );
 };
 RenameColumnsComponent.displayName = "RenameColumns";
@@ -612,14 +607,8 @@ export const RenameColumns = withNodeWrapper(RenameColumnsComponent);
 /* -------------------------------- Javascript ------------------------------- */
 
 const Code = ({ code }) => (
-  <Box
-    borderWidth={0}
-    borderStyle="solid"
-    borderColor="rgba(255, 255, 255, 0.16)"
-    userSelect="none"
-    color="#6272a4"
-    lineHeight={1.2}
-    paddingLeft="3px"
+  <div
+    className="border-0 border-solid border-[rgba(255,255,255,0.16)] pl-[3px] leading-[1.2] text-[#6272a4] select-none"
     // highlight.js escapes the source text; its output only adds span markup.
     // eslint-disable-next-line @eslint-react/dom-no-dangerously-set-innerhtml
     dangerouslySetInnerHTML={{
@@ -654,19 +643,15 @@ const CodeEditor = ({ value, onChange, onRun, onFocus, hasInputData, className =
     .join(", ");
 
   return (
-    <Flex
-      width="360px"
-      textAlign="left"
-      fontFamily="mono"
-      fontSize="12px"
-      fontWeight={400}
-      lineHeight={1.2}
-      flexDirection="column"
-      className={className}
+    <div
+      className={cn(
+        "flex w-[360px] flex-col text-left font-mono text-[12px] leading-[1.2] font-normal",
+        className,
+      )}
     >
-      <Box my={1}>
+      <div className="my-1">
         <Code code={`async function f(${args}) {`} />
-        <Box pl={3}>
+        <div className="pl-3">
           <div
             className="codejar-editor language-js"
             ref={editorRef}
@@ -676,13 +661,13 @@ const CodeEditor = ({ value, onChange, onRun, onFocus, hasInputData, className =
             }}
             onBlur={() => setCodeEditorFocused(false)}
           />
-        </Box>
+        </div>
         <Code code="}" />
-      </Box>
-      <Button mt="auto" onClick={onRun} title="ctrl + enter">
+      </div>
+      <Button className="mt-auto" onClick={onRun} title="ctrl + enter">
         Run
       </Button>
-    </Flex>
+    </div>
   );
 };
 CodeEditor.displayName = "CodeEditor";
@@ -761,7 +746,7 @@ const JsComponent = ({ id, data }) => {
   const hasInputData = useMemo(() => ({ a: hasA, b: hasB }), [hasA, hasB]);
 
   return (
-    <Box>
+    <div>
       <Handle
         type="target"
         position={Position.Left}
@@ -788,7 +773,7 @@ const JsComponent = ({ id, data }) => {
         onFocus={onFocus}
         className="nodrag"
       />
-    </Box>
+    </div>
   );
 };
 JsComponent.displayName = "CodeNode";
@@ -898,26 +883,18 @@ const GeocodeComponent = ({ id, data }) => {
   }, [valid, data.apiKey, data.column, data.provider, addLogs, input, updateNodeData, id]);
 
   return (
-    <Box p={2} minWidth={200}>
-      <FormLabel {...labelStyle}>Provider:</FormLabel>
-      <Select value={data.provider} onChange={onProviderChange}>
+    <div className="min-w-[200px] p-2">
+      <Label className={labelClassName}>Provider:</Label>
+      <NativeSelect value={data.provider} onChange={onProviderChange}>
         {PROVIDERS.map((provider) => (
           <option value={provider.value} key={provider.value}>
             {provider.label}
           </option>
         ))}
-      </Select>
-      <FormLabel {...labelStyle}>Api key:</FormLabel>
-      <Input
-        value={data.apiKey}
-        onChange={onApiKeyChange}
-        className="nodrag"
-        mb={2}
-        width="200px"
-      />
-      <FormLabel {...labelStyle} mt={2}>
-        Column to geocode:
-      </FormLabel>
+      </NativeSelect>
+      <Label className={labelClassName}>Api key:</Label>
+      <Input value={data.apiKey} onChange={onApiKeyChange} className="nodrag mb-2 w-[200px]" />
+      <Label className={cn(labelClassName, "mt-2")}>Column to geocode:</Label>
       <ColumnSelect
         handleId={geocodeHandle}
         onChange={onColumnChange}
@@ -926,10 +903,10 @@ const GeocodeComponent = ({ id, data }) => {
         inputData={input}
         inputValid={valid}
       />
-      <Button mt={2} disabled={processing} onClick={run}>
+      <Button className="mt-2" disabled={processing} onClick={run}>
         {processing ? "Processing…" : "Run"}
       </Button>
-    </Box>
+    </div>
   );
 };
 GeocodeComponent.displayName = "Geocode";
@@ -1002,7 +979,7 @@ const ColorizeComponent = ({ id, data }) => {
   );
 
   return (
-    <Box minWidth={200} p={2}>
+    <div className="min-w-[200px] p-2">
       <ColumnSelect
         onChange={onChange}
         handleId={id}
@@ -1011,20 +988,20 @@ const ColorizeComponent = ({ id, data }) => {
         value={columnName}
         noConnectionLabel="connect geojson or dataset…"
       />
-      <Box mt={2}>
+      <div className="mt-2">
         <Colorscale
           colorscale={colorScale}
           onClick={() => updateNodeData({ id, data: { colorScaleExpanded: !colorScaleExpanded } })}
         />
-      </Box>
+      </div>
       {colorScaleExpanded && (
-        <Box className="nodrag nowheel">
+        <div className="nodrag nowheel">
           <ColorscalePicker
             onChange={(value) => updateNodeData({ id, data: { colorScale: value } })}
           />
-        </Box>
+        </div>
       )}
-    </Box>
+    </div>
   );
 };
 ColorizeComponent.displayName = "Colorize";

@@ -1,11 +1,16 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 // Production builds are hosted under https://channely.github.io/datablocks/.
 // Set VITE_BASE to deploy under a different repository or path.
 export default defineConfig(({ command, isPreview }) => ({
   base: process.env.VITE_BASE || (command === "build" || isPreview ? "/datablocks/" : "/"),
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+  },
   define: {
     // Some transitive browser dependencies still reference the Node global.
     global: "globalThis",

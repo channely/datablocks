@@ -4,8 +4,8 @@
  * Connected handles use the hover color.
  */
 import { Handle, Position } from "@xyflow/react";
-import { useTheme } from "@chakra-ui/react";
 import useStore from "../store";
+import { colors } from "../lib/themeTokens";
 
 const baseStyle = {
   height: "calc(100% + 2px)",
@@ -16,7 +16,6 @@ const baseStyle = {
 };
 
 const ConnectedHandle = ({ id, type, className, style, ...rest }) => {
-  const theme = useTheme();
   const connected = useStore((state) => state.edges).some(
     (edge) => edge[type] === id || edge[`${type}Handle`] === id,
   );
@@ -46,7 +45,7 @@ const ConnectedHandle = ({ id, type, className, style, ...rest }) => {
       style={{
         ...baseStyle,
         ...sideStyle,
-        background: connected ? theme.colors.handleHover : theme.colors.handle,
+        background: connected ? colors.handleHover : colors.handle,
         ...style,
       }}
       {...rest}

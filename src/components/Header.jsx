@@ -160,10 +160,30 @@ const TitleEditor = ({ onFlowTitleChange }) => {
 const HeaderTools = ({ onFlowTitleChange }) => {
   const demoMode = useStore((state) => state.demoMode);
   const loadFlow = useStore((state) => state.loadFlow);
+  const saveStatus = useStore((state) => state.saveStatus);
+  const lastSavedAt = useStore((state) => state.lastSavedAt);
   const { zoomIn, zoomOut, zoomTo, fitView } = useReactFlow();
-  const { save, clear } = useFlowCommands();
+  const { save, saveAs, openFlows, newFlow, exportFlow, importFlowFile, clear } = useFlowCommands();
   const loadAllNodes = useLoadAllNodes();
   const autoLayout = useAutoLayout();
+  const fileInputRef = useRef(null);
+
+  const statusLabel = (() => {
+    if (saveStatus === "saving") return "Saving…";
+    if (saveStatus === "error") return "Save failed";
+    if (lastSavedAt) {
+      return `Saved ${new Date(lastSavedAt).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
+    }
+    return null;
+  })();
+
+  const onImportChange = (event) => {
+    importFlowFile(event.target.files?.[0]);
+    event.target.value = "";
+  };
 
   return (
     <>
@@ -172,6 +192,11 @@ const HeaderTools = ({ onFlowTitleChange }) => {
           <Dropdown
             items={[
               { label: "Save", onSelect: save },
+              { label: "Save as…", onSelect: saveAs },
+              { label: "Open…", onSelect: openFlows },
+              { label: "New flow", onSelect: newFlow },
+              { label: "Import flow…", onSelect: () => fileInputRef.current?.click() },
+              { label: "Export flow", onSelect: () => exportFlow() },
               { label: "Clear", onSelect: clear },
             ]}
             label={<HeaderLabel style={{ marginRight: 0 }}>File</HeaderLabel>}
@@ -195,22 +220,32 @@ const HeaderTools = ({ onFlowTitleChange }) => {
           items={[
             {
               label: "Introduction Flow",
-              onSelect: () => loadFlow("introduction"),
+              onSelect: () => loadFlow("introduction").catch(() => {}),
             },
           ]}
           label={<HeaderLabel style={{ marginRight: 0 }}>Help</HeaderLabel>}
         />
-        {demoMode && (
-          <Flex ml="auto">
-            <HeaderLabel style={{ marginRight: 0, marginLeft: "1em" }}>
-              <a href="/login">Login</a>
-            </HeaderLabel>
-            <HeaderLabel style={{ marginRight: 0, marginLeft: "1em" }}>
-              <a href="/signup">Sign up</a>
-            </HeaderLabel>
-          </Flex>
-        )}
+        <Flex ml="auto" alignItems="center">
+          {!demoMode && statusLabel && (
+            <Box fontSize="11px" color="silverDarken15" mr="1em" data-testid="save-status">
+              {statusLabel}
+            </Box>
+          )}
+          <HeaderLabel style={{ marginRight: 0 }}>
+            <a href="https://github.com/channely/datablocks" target="_blank" rel="noreferrer">
+              GitHub
+            </a>
+          </HeaderLabel>
+        </Flex>
       </HeaderMenu>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,application/json"
+        style={{ display: "none" }}
+        onChange={onImportChange}
+        data-testid="flow-import-input"
+      />
       <TitleEditor onFlowTitleChange={onFlowTitleChange} />
     </>
   );

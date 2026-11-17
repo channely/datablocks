@@ -1,19 +1,30 @@
 /**
- * Editor commands shared by the header menus and keyboard shortcuts:
- * clear/save, automatic dagre layout, and loading every block at the origin.
+ * Editor commands shared by the header menus, keyboard shortcuts, and the flow library:
+ * save / save-as, new flow, open the library, import, export, clear, automatic dagre layout,
+ * and loading every block at the origin.
  */
 import { useCallback } from "react";
-import { isNode, useReactFlow, useStore as useFlowStore } from "react-flow-renderer";
+import { isNode, useReactFlow, useStoreApi } from "react-flow-renderer";
 import dagre from "dagre";
 import cloneDeep from "lodash-es/cloneDeep";
 import useStore from "../store";
 import { BLOCKS } from "../blocks/registry";
+import { flowFileName } from "../lib/flowSerialization";
+import { download } from "../lib/download";
 
 export const useFlowCommands = () => {
   const setElements = useStore((state) => state.setElements);
   const clearLogs = useStore((state) => state.clearLogs);
   const onFlowSaveCallback = useStore((state) => state.onFlowSaveCallback);
-  const store = useFlowStore();
+  const saveFlow = useStore((state) => state.saveFlow);
+  const exportFlow = useStore((state) => state.exportFlow);
+  const importFlow = useStore((state) => state.importFlow);
+  const startNewFlow = useStore((state) => state.newFlow);
+  const setModal = useStore((state) => state.setModal);
+  const addLogs = useStore((state) => state.addLogs);
+  const flowId = useStore((state) => state.id);
+  const flowTitle = useStore((state) => state.title);
+  const store = useStoreApi();
   const { setViewport, viewportInitialized } = useReactFlow();
 
   const clear = useCallback(() => {
@@ -24,7 +35,11 @@ export const useFlowCommands = () => {
     }
   }, [viewportInitialized, setElements, setViewport, clearLogs]);
 
-  const save = useCallback(() => {
+  /**
+   * Embedders may still provide `onFlowSaveCallback`; in that case the canvas is handed to them
+   * unchanged. The standalone app falls back to the local flow library.
+   */
+  const save = useCallback(async () => {
     const state = store.getState();
     const nodes = Array.from(state.nodeInternals.values());
     const { edges, transform } = state;
@@ -36,10 +51,77 @@ export const useFlowCommands = () => {
         y: transform[1],
         zoom: transform[2],
       });
+      return null;
     }
-  }, [store, onFlowSaveCallback]);
+    try {
+      const meta = await saveFlow({ id: flowId, title: flowTitle });
+      addLogs({ method: "info", data: [`Saved "${meta.title}".`] });
+      return meta;
+    } catch {
+      // The store already logged the failure with a recovery hint.
+      return null;
+    }
+  }, [store, onFlowSaveCallback, saveFlow, flowId, flowTitle, addLogs]);
 
-  return { clear, save };
+  const saveAs = useCallback(async () => {
+    const suggested = flowTitle === "Untitled flow" ? "My flow" : flowTitle;
+    const name = window.prompt("Save flow as", suggested);
+    if (!name || !name.trim()) return null;
+    try {
+      const meta = await saveFlow({ id: null, title: name.trim() });
+      addLogs({ method: "info", data: [`Saved a copy as "${meta.title}".`] });
+      return meta;
+    } catch {
+      return null;
+    }
+  }, [saveFlow, flowTitle, addLogs]);
+
+  const openFlows = useCallback(() => setModal({ type: "flows" }), [setModal]);
+
+  const newFlow = useCallback(() => {
+    const state = useStore.getState();
+    const hasContent = state.nodes.length > 0 || state.edges.length > 0;
+    if (hasContent && !window.confirm("Start a new flow? The current canvas will be cleared.")) {
+      return;
+    }
+    startNewFlow();
+    addLogs({ method: "info", data: ["Started a new flow."] });
+  }, [startNewFlow, addLogs]);
+
+  const exportFlowCommand = useCallback(
+    async (id = flowId, name = flowTitle) => {
+      try {
+        const json = await exportFlow(id);
+        download(json, "application/json", flowFileName(name));
+        addLogs({ method: "info", data: [`Exported "${name || "flow"}".`] });
+      } catch (error) {
+        addLogs({ method: "error", data: ["Exporting the flow failed.", error.message] });
+      }
+    },
+    [exportFlow, flowId, flowTitle, addLogs],
+  );
+
+  const importFlowFile = useCallback(
+    async (file) => {
+      if (!file) return null;
+      try {
+        const text = await file.text();
+        const meta = await importFlow(text);
+        setModal(null);
+        addLogs({
+          method: "info",
+          data: [`Imported "${meta.title}" (${meta.nodeCount} nodes).`],
+        });
+        return meta;
+      } catch (error) {
+        addLogs({ method: "error", data: ["Importing the flow failed.", error.message] });
+        return null;
+      }
+    },
+    [importFlow, setModal, addLogs],
+  );
+
+  return { clear, save, saveAs, openFlows, newFlow, exportFlow: exportFlowCommand, importFlowFile };
 };
 
 const layoutElements = (elements) => {
@@ -73,7 +155,7 @@ const layoutElements = (elements) => {
 
 export const useAutoLayout = () => {
   const setElements = useStore((state) => state.setElements);
-  const store = useFlowStore();
+  const store = useStoreApi();
   return useCallback(() => {
     const { nodeInternals, edges } = store.getState();
     setElements(layoutElements([...Array.from(nodeInternals.values()), ...edges]));

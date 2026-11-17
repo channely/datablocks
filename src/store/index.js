@@ -3,11 +3,18 @@
  *
  * Two logical slices share one store:
  * - UI state: modal, demo mode, logs, and the dependency list used by the JS sandbox.
- * - Flow state: nodes, edges, selection, viewport, persistence, and flow metadata.
+ * - Flow state: nodes, edges, selection, viewport, local persistence, and flow metadata.
  *
  * Important: node payloads never contain raw datasets. `data.current` is an id pointing into
- * `lib/dataStore`; `addNode`/`updateNodeData` convert values to ids and `restoreElements`
- * rehydrates them when a flow is loaded. See docs/ARCHITECTURE.md.
+ * `lib/dataStore`; `addNode`/`updateNodeData` convert values to ids, and saved flows are
+ * serialized through `lib/flowSerialization` (which re-inserts them on the way back in).
+ * See docs/ARCHITECTURE.md.
+ *
+ * Local storage keys (localforage database `datablocks`, store `flows`):
+ * - `flow__settings`   preference blob (reserved for future settings)
+ * - `flow__index`      library metadata: `[{ id, title, createdAt, updatedAt, nodeCount }]`
+ * - `flow__<id>`       one flow document per saved flow
+ * - `flow__autosave`   latest session snapshot; restored on reload, never listed in the library
  */
 import create from "zustand";
 import cloneDeep from "lodash-es/cloneDeep";
@@ -17,10 +24,14 @@ import { applyEdgeChanges, applyNodeChanges, isEdge, isNode } from "react-flow-r
 import execution from "../lib/execution";
 import dataStore from "../lib/dataStore";
 import { getFlowRect } from "../lib/download";
+import { DEFAULT_TITLE, deserializeFlow, serializeFlow } from "../lib/flowSerialization";
 
 let logId = 0;
 
 const SETTINGS_KEY = "flow__settings";
+const INDEX_KEY = "flow__index";
+const AUTOSAVE_KEY = "flow__autosave";
+const FLOW_PREFIX = "flow__";
 const DEFAULT_SETTINGS = { settingKey: false };
 
 /** Base-aware path to the static flow files in `public/data/flows`. */
@@ -29,21 +40,100 @@ const FLOWS_BASE = `${import.meta.env.BASE_URL}data/flows`;
 const storage = localforage.createInstance({ name: "datablocks", storeName: "flows" });
 export const flowStorage = storage;
 
+/** Slim library record derived from a full flow document. */
+const toMeta = (flow) => ({
+  id: flow.id,
+  title: flow.title || DEFAULT_TITLE,
+  createdAt: flow.createdAt || null,
+  updatedAt: flow.updatedAt || null,
+  nodeCount: (flow.elements || []).filter(isNode).length,
+});
+
 /**
- * Replaces serialized `data.current` values with DataStore ids.
- * Mutates the passed flow; callers own the parsed object.
+ * Rebuild `flow__index` by scanning stored flows. Used when the index is missing or damaged so
+ * a failed index write cannot permanently hide saved work.
  */
-const restoreElements = (flow) => {
-  if (flow?.elements) {
-    flow.elements = flow.elements.map((element) => {
-      if (isNode(element) && element.data.current) {
-        const { data, type } = element.data.current;
-        element.data.current = dataStore.set(data, type);
-      }
-      return element;
-    });
+const rebuildIndex = async () => {
+  const keys = await storage.keys();
+  const entries = [];
+  for (const key of keys) {
+    if (
+      !key.startsWith(FLOW_PREFIX) ||
+      key === SETTINGS_KEY ||
+      key === INDEX_KEY ||
+      key === AUTOSAVE_KEY
+    ) {
+      continue;
+    }
+    const flow = await storage.getItem(key);
+    if (flow?.elements) entries.push(toMeta(flow));
   }
-  return flow;
+  entries.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  await storage.setItem(INDEX_KEY, entries);
+  return entries;
+};
+
+const readIndex = async () => {
+  const stored = await storage.getItem(INDEX_KEY);
+  return Array.isArray(stored) ? stored : rebuildIndex();
+};
+
+const upsertIndex = async (meta) => {
+  const index = await readIndex();
+  const next = [meta, ...index.filter((entry) => entry.id !== meta.id)];
+  await storage.setItem(INDEX_KEY, next);
+  return next;
+};
+
+const removeFromIndex = async (id) => {
+  const index = await readIndex();
+  await storage.setItem(
+    INDEX_KEY,
+    index.filter((entry) => entry.id !== id),
+  );
+};
+
+const splitFlow = (flow) => ({
+  nodes: (flow.elements || []).filter(isNode),
+  edges: (flow.elements || []).filter(isEdge),
+});
+
+/** Serialize live editor state (or the React Flow instance snapshot) into a flow document. */
+const snapshot = (state, overrides = {}) => {
+  const instance = state.flowInstance;
+  const { nodes, edges, viewport } = instance
+    ? instance.toObject()
+    : { nodes: state.nodes, edges: state.edges, viewport: { x: 0, y: 0, zoom: 1 } };
+  const id = Object.prototype.hasOwnProperty.call(overrides, "id") ? overrides.id : state.id;
+  return serializeFlow({
+    nodes,
+    edges,
+    viewport,
+    id,
+    title: overrides.title ?? state.title,
+    createdAt: overrides.createdAt ?? state.createdAt,
+    updatedAt: overrides.updatedAt,
+  });
+};
+
+/** Replace editor contents from a deserialized flow (edges are deferred like React Flow expects). */
+const applyFlow = (flow, meta = {}) => {
+  const { nodes, edges } = splitFlow(flow);
+  const state = useStore.getState();
+  state.setMeta({
+    id: flow.id || null,
+    title: flow.title || DEFAULT_TITLE,
+    created_at: flow.createdAt || null,
+    updated_at: flow.updatedAt || null,
+  });
+  state.setElements(nodes);
+  state.setFlowTransform(flow.viewport);
+  // Edges are added after the nodes have mounted; mirrors the reference loading behavior.
+  setTimeout(() => useStore.getState().addEdges(edges), 250);
+  useStore.setState({
+    saveStatus: meta.saveStatus || "idle",
+    lastSavedAt: meta.lastSavedAt || null,
+  });
 };
 
 const uiStore = (set, get) => ({
@@ -84,10 +174,12 @@ const uiStore = (set, get) => ({
 
 const flowStore = (set, get) => ({
   id: null,
-  title: null,
+  title: DEFAULT_TITLE,
   isPublic: false,
   updatedAt: null,
   createdAt: null,
+  saveStatus: "idle",
+  lastSavedAt: null,
   nodes: [],
   edges: [],
   inputNodeModalData: null,
@@ -174,7 +266,7 @@ const flowStore = (set, get) => ({
   setMeta: ({ id, title, is_public, updated_at, created_at }) =>
     set({
       id,
-      title,
+      title: title || DEFAULT_TITLE,
       isPublic: is_public,
       createdAt: created_at,
       updatedAt: updated_at,
@@ -186,56 +278,186 @@ const flowStore = (set, get) => ({
     state.setMeta(flow);
     state.setElements(nodes);
     state.setFlowTransform({
-      x: flow?.viewport?.x || 0,
-      y: flow?.viewport?.y || 0,
-      zoom: flow?.viewport?.zoom || 1,
+      x: flow?.viewport?.x || flow?.x || 0,
+      y: flow?.viewport?.y || flow?.y || 0,
+      zoom: flow?.viewport?.zoom || flow?.zoom || 1,
     });
     setTimeout(() => {
       state.addEdges(edges);
     }, 250);
   },
+  /** Load a static reference flow (for example `introduction`) from `public/data/flows`. */
   loadFlow: async (name) => {
     const response = await fetch(`${FLOWS_BASE}/${name}.json`);
-    const flow = await response.json();
-    restoreElements(flow);
-    const state = get();
-    const nodes = (flow?.elements || []).filter(isNode);
-    const edges = (flow?.elements || []).filter(isEdge);
-    state.setElements(nodes);
-    state.setFlowTransform({
-      x: flow?.x || 0,
-      y: flow?.y || 0,
-      zoom: flow?.zoom || 1,
-    });
-    setTimeout(() => state.addEdges(edges), 250);
+    if (!response.ok) throw new Error(`Could not load flow "${name}".`);
+    const flow = deserializeFlow(await response.json());
+    const title = name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, " ");
+    applyFlow({ ...flow, id: null, title }, { saveStatus: "idle" });
   },
-  saveFlow: async (name = "flow__default") => {
+  /** Persist the current canvas into the library (creating an entry when `id` is new). */
+  saveFlow: async ({ id, title } = {}) => {
     const state = get();
-    const instance = state.flowInstance;
-    const { nodes, edges, viewport } = instance
-      ? instance.toObject()
-      : { nodes: state.nodes, edges: state.edges, viewport: { x: 0, y: 0, zoom: 1 } };
-    const elements = cloneDeep([...nodes, ...edges]).map((element) => {
-      if (isNode(element)) {
-        if (element.data?.current) {
-          element.data.current = dataStore.get(element.data.current);
-        }
-        delete element.handleBounds;
-      }
-      return element;
-    });
-    return storage.setItem(name, {
-      elements,
-      x: viewport.x,
-      y: viewport.y,
-      zoom: viewport.zoom,
-      title: state.title,
-    });
+    const now = new Date().toISOString();
+    const flowId = id || state.id || `flow__${nanoid()}`;
+    set({ saveStatus: "saving" });
+    try {
+      const flow = snapshot(state, {
+        id: flowId,
+        title: title || state.title,
+        createdAt: state.id === flowId && state.createdAt ? state.createdAt : now,
+        updatedAt: now,
+      });
+      await storage.setItem(flowId, flow);
+      const meta = toMeta(flow);
+      await upsertIndex(meta);
+      set({
+        id: flowId,
+        title: flow.title,
+        createdAt: flow.createdAt,
+        updatedAt: now,
+        saveStatus: "saved",
+        lastSavedAt: now,
+      });
+      return meta;
+    } catch (error) {
+      set({ saveStatus: "error" });
+      get().addLogs({
+        method: "error",
+        data: [
+          "Saving the flow failed. Browser storage may be full; export the flow and remove old entries.",
+          error.message,
+        ],
+      });
+      throw error;
+    }
   },
-  restoreFlow: async (name = "flow__default") => {
-    const flow = await storage.getItem(name);
-    restoreElements(flow);
-    return flow;
+  /** Write the session snapshot without creating/updating a library entry. */
+  autosave: async () => {
+    if (get().demoMode) return null;
+    const state = get();
+    const now = new Date().toISOString();
+    try {
+      const flow = snapshot(state, { updatedAt: now });
+      await storage.setItem(AUTOSAVE_KEY, flow);
+      set({ saveStatus: "saved", lastSavedAt: now });
+      return flow;
+    } catch (error) {
+      set({ saveStatus: "error" });
+      get().addLogs({
+        method: "error",
+        data: [
+          "Autosave failed. Browser storage may be full; export the flow and remove old entries.",
+          error.message,
+        ],
+      });
+      return null;
+    }
+  },
+  /** Restore the last session after a reload. Returns the restored flow or null. */
+  restoreSession: async () => {
+    const stored = await storage.getItem(AUTOSAVE_KEY);
+    if (!stored) return null;
+    try {
+      const flow = deserializeFlow(stored);
+      applyFlow(flow, {
+        saveStatus: "saved",
+        lastSavedAt: flow.updatedAt || null,
+      });
+      return flow;
+    } catch (error) {
+      get().addLogs({
+        method: "error",
+        data: ["The saved session could not be restored.", error.message],
+      });
+      return null;
+    }
+  },
+  listFlows: async () => {
+    const index = await readIndex();
+    return [...index].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  },
+  loadFlowById: async (id) => {
+    const stored = await storage.getItem(id);
+    if (!stored) throw new Error(`Flow "${id}" was not found.`);
+    const flow = deserializeFlow(stored);
+    applyFlow({ ...flow, id }, { saveStatus: "saved", lastSavedAt: flow.updatedAt });
+    return toMeta(flow);
+  },
+  renameFlow: async (id, title) => {
+    const nextTitle = (title || "").trim();
+    if (!nextTitle) throw new Error("A flow name is required.");
+    const flow = await storage.getItem(id);
+    if (!flow) throw new Error(`Flow "${id}" was not found.`);
+    const now = new Date().toISOString();
+    const updated = { ...flow, title: nextTitle, updatedAt: now };
+    await storage.setItem(id, updated);
+    await upsertIndex(toMeta(updated));
+    if (get().id === id) set({ title: nextTitle, updatedAt: now });
+    return toMeta(updated);
+  },
+  duplicateFlow: async (id) => {
+    const source = await storage.getItem(id);
+    if (!source) throw new Error(`Flow "${id}" was not found.`);
+    const now = new Date().toISOString();
+    const copy = {
+      ...cloneDeep(source),
+      id: `flow__${nanoid()}`,
+      title: `${source.title || DEFAULT_TITLE} copy`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await storage.setItem(copy.id, copy);
+    await upsertIndex(toMeta(copy));
+    return toMeta(copy);
+  },
+  deleteFlow: async (id) => {
+    await storage.removeItem(id);
+    await removeFromIndex(id);
+    if (get().id === id) {
+      set({
+        id: null,
+        title: DEFAULT_TITLE,
+        createdAt: null,
+        updatedAt: null,
+        saveStatus: "idle",
+        lastSavedAt: null,
+      });
+    }
+  },
+  /** Start an empty flow. The previous canvas remains in the autosave until overwritten. */
+  newFlow: () => {
+    set({
+      id: null,
+      title: DEFAULT_TITLE,
+      createdAt: null,
+      updatedAt: null,
+      saveStatus: "idle",
+      lastSavedAt: null,
+      selectedNode: null,
+      selectedNodeId: null,
+    });
+    get().setElements([]);
+    get().setFlowTransform({ x: 0, y: 0, zoom: 1 });
+  },
+  /**
+   * Serialize a flow for download. Without an id (or for the flow currently open) the live
+   * canvas is used, so unsaved edits are included. Otherwise the stored document is returned.
+   */
+  exportFlow: async (id) => {
+    const state = get();
+    if (!id || id === state.id) {
+      return JSON.stringify(snapshot(state), null, 2);
+    }
+    const stored = await storage.getItem(id);
+    if (!stored) throw new Error(`Flow "${id}" was not found.`);
+    return JSON.stringify(stored, null, 2);
+  },
+  /** Parse, validate, and load a flow document. Throws on invalid input. */
+  importFlow: async (input) => {
+    const parsed = typeof input === "string" ? JSON.parse(input) : input;
+    const flow = deserializeFlow(parsed);
+    applyFlow(flow, { saveStatus: "idle" });
+    return toMeta(flow);
   },
   removeElements: (elements) => {
     const ids = elements.map((e) => e.id);

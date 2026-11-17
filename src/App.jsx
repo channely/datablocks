@@ -1,8 +1,9 @@
 /**
  * Application shell: header, React Flow canvas, data output panel, terminal, drop target, and
- * keyboard shortcuts. Also seeds the demo flow and wires the optional save callback.
+ * keyboard shortcuts. The standalone app restores the last session and autosaves edits; when
+ * `data` is provided by an embedder it is loaded instead and autosave is skipped.
  */
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Box, Button, Flex } from "@chakra-ui/react";
 import { useDropzone } from "react-dropzone";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -15,24 +16,12 @@ import Terminal from "./components/Terminal";
 import Panel from "./components/Panel";
 import SectionLabel from "./components/SectionLabel";
 import Library from "./components/Library";
+import FlowLibrary from "./components/FlowLibrary";
 import { getFlowRect } from "./lib/download";
 import { parseFile } from "./lib/dataIO";
 import { useFlowCommands } from "./hooks/useFlowCommands";
 import useData from "./hooks/useData";
-
-const DEFAULT_DATA = {
-  flow: [
-    {
-      elements: [],
-      id: null,
-      title: "demo flow",
-      is_public: false,
-      created_at: new Date(),
-      updated_at: new Date(),
-      demoMode: true,
-    },
-  ],
-};
+import useAutosave from "./hooks/useAutosave";
 
 const AddBlock = () => {
   const setModal = useStore((state) => state.setModal);
@@ -109,7 +98,7 @@ const DropZoneWrapper = ({ children }) => {
 };
 
 const AppInner = ({
-  data = DEFAULT_DATA,
+  data,
   demoMode = false,
   loading = false,
   onFlowSave,
@@ -122,13 +111,16 @@ const AppInner = ({
   const addLogs = useStore((state) => state.addLogs);
   const setDemoMode = useStore((state) => state.setDemoMode);
   const setOnFlowSaveCallback = useStore((state) => state.setOnFlowSaveCallback);
+  const restoreSession = useStore((state) => state.restoreSession);
   const selectedCurrent = useStore((state) => {
     const node = state.nodes.find((n) => n.id === state.selectedNode?.id);
     return node?.data?.current;
   });
   const [selectedData, selectedType] = useData(selectedCurrent);
   const { setViewport, viewportInitialized } = useReactFlow();
-  const { save, clear } = useFlowCommands();
+  const { save, clear, openFlows, saveAs } = useFlowCommands();
+  const [restoring, setRestoring] = useState(!data);
+  const restoredRef = useRef(false);
 
   useEffect(
     () => () => {
@@ -141,8 +133,16 @@ const AppInner = ({
   useEffect(() => {
     if (data?.flow && viewportInitialized) {
       setFlowData(data.flow[0]);
+      setRestoring(false);
     }
   }, [data, viewportInitialized, setFlowData]);
+
+  // Standalone boot: restore the last autosaved session once the canvas is ready.
+  useEffect(() => {
+    if (!viewportInitialized || data || restoredRef.current) return;
+    restoredRef.current = true;
+    restoreSession().finally(() => setRestoring(false));
+  }, [data, viewportInitialized, restoreSession]);
 
   useEffect(() => {
     if (flowTransform) setViewport(flowTransform);
@@ -162,6 +162,8 @@ const AppInner = ({
     }
   }, [demoMode, addLogs, setDemoMode]);
 
+  useAutosave({ enabled: !restoring && !demoMode && !loading });
+
   useHotkeys(
     "ctrl+s, command+s",
     (event) => {
@@ -169,6 +171,22 @@ const AppInner = ({
       save();
     },
     [save],
+  );
+  useHotkeys(
+    "ctrl+o, command+o",
+    (event) => {
+      event.preventDefault();
+      openFlows();
+    },
+    [openFlows],
+  );
+  useHotkeys(
+    "ctrl+shift+s, command+shift+s",
+    (event) => {
+      event.preventDefault();
+      saveAs();
+    },
+    [saveAs],
   );
   useHotkeys(
     "ctrl+k, command+k",
@@ -192,7 +210,23 @@ const AppInner = ({
           minHeight="150px"
         >
           <AddBlock />
-          <DropZoneWrapper>{!loading && <FlowView />}</DropZoneWrapper>
+          <DropZoneWrapper>
+            {!loading && <FlowView />}
+            {restoring && (
+              <Box
+                position="absolute"
+                inset={0}
+                bg="bg.dark"
+                zIndex={90}
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                color="silverDarken15"
+              >
+                Restoring session…
+              </Box>
+            )}
+          </DropZoneWrapper>
         </Box>
         <Flex
           flexGrow={1}
@@ -219,13 +253,14 @@ const AppInner = ({
           </Flex>
         </Flex>
       </Flex>
+      <FlowLibrary />
     </Box>
   );
 };
 
-const App = ({ data = DEFAULT_DATA, demoMode = true, ...rest }) => (
+const App = ({ demoMode = false, ...rest }) => (
   <ReactFlowProvider>
-    <AppInner data={data} demoMode={demoMode} {...rest} />
+    <AppInner demoMode={demoMode} {...rest} />
   </ReactFlowProvider>
 );
 

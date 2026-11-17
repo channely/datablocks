@@ -195,7 +195,7 @@ const BlockLibrary = ({ data = {} }) => {
 
 export const Library = () => {
   const modal = useStore((state) => state.modal);
-  if (!modal) return null;
+  if (!modal || modal.type !== "library") return null;
   return <LibraryModal data={modal} />;
 };
 

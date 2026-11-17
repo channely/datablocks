@@ -19,12 +19,15 @@ Node 22 is required (see `.nvmrc`).
 
 ## Where things live
 
-- `src/App.jsx` — layout, default demo flow, drag-and-drop, hotkeys.
+- `src/App.jsx` — layout, session restore, autosave, drag-and-drop, hotkeys.
 - `src/components/Flow.jsx` — React Flow canvas, selection, context menu, minimap.
 - `src/components/NodeWrapper.jsx` — node chrome, error boundary, summary, handle placement.
+- `src/components/FlowLibrary.jsx` — local flow library modal (open/rename/duplicate/export/delete).
 - `src/blocks/` — one file per block group plus `registry.js` (the single source of truth for
   available blocks, labels, groups, input/output types, and default node data).
-- `src/store/index.js` — zustand store. `nodes`/`edges` mirror React Flow elements.
+- `src/store/index.js` — zustand store. `nodes`/`edges` mirror React Flow elements; persistence
+  actions (`saveFlow`, `autosave`, `restoreSession`, `listFlows`, …) live here.
+- `src/lib/flowSerialization.js` — flow schema, validation, (de)serialization, export filename.
 - `src/lib/dataStore.js` — in-memory data cache. Node payloads hold **IDs**, not data.
 - `src/lib/execution.js` — iframe execution engine for the Javascript block.
 - `src/lib/types.js` / `geo.js` / `exporters.js` — pure helpers.
@@ -55,6 +58,12 @@ Node 22 is required (see `.nvmrc`).
    `index.html` via `%BASE_URL%`). The app is deployed at `/datablocks/`.
 7. **Visual parity.** The Chakra theme and React Flow CSS are tuned to match the reference
    demo. Avoid restyling shared primitives unless the task explicitly asks for it.
+8. **Persistence schema.** Flow documents are versioned (`FLOW_VERSION` in
+   `src/lib/flowSerialization.js`) and must go through `serializeFlow` / `deserializeFlow`.
+   Loading must rehydrate every `data.current` through `dataStore.set`; never write raw
+   datasets into serialized node data. localforage keys: `flow__settings`, `flow__index`,
+   `flow__<id>`, `flow__autosave`. Bump the version when the document shape changes and keep
+   the legacy `{ elements, x, y, zoom }` reader working.
 
 ## Security
 

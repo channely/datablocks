@@ -144,7 +144,6 @@ export const NodeWrapper = memo(
           {targetHandle && <TargetHandle color={color} position="left" id={id} />}
           {sourceHandle && <SourceHandle color={color} position="right" id={id} />}
           <Box>{children}</Box>
-          <Summary data={data} />
         </NodeErrorBoundary>
       </Box>
     );

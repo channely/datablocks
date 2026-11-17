@@ -48,8 +48,9 @@ and a `data` object:
 
 `data.current` is an opaque ID. The actual value lives in an in-memory `Map` inside
 `src/lib/dataStore.js`. This keeps React Flow state small and avoids cloning large datasets on
-every layout or selection change. IDs are created in `addNode` and `updateNodeData`; the
-`restoreElements` helper rehydrates IDs when loading a flow from JSON.
+every layout or selection change. IDs are created in `addNode` and `updateNodeData`;
+`deserializeFlow` in `src/lib/flowSerialization.js` rehydrates IDs (through `dataStore.set`) when
+a flow is loaded from JSON.
 
 ### Edges
 
@@ -133,9 +134,47 @@ convenience sandbox, not a security boundary: see [SECURITY.md](../SECURITY.md).
 
 ## Persistence
 
-`localforage` stores flows under the `datablocks` database (`saveFlow`/`restoreFlow`). The demo
-build exposes save through the File menu callback and does not upload data. The introduction
-flow is a static file under `public/data/flows`.
+Flows are saved locally with `localforage` (database `datablocks`, store `flows`); there is no
+backend. `src/lib/flowSerialization.js` is the single schema boundary:
+
+```js
+{
+  version: 1,
+  id: "flow__<nanoid>",
+  title: "Untitled flow",
+  createdAt, updatedAt,          // ISO strings
+  elements: [node | edge, ...],  // nodes keep id/type/position/data, edges keep connection fields
+  viewport: { x, y, zoom },
+}
+```
+
+Serialization strips transient React Flow fields (`width`, `height`, `selected`, …) and replaces
+each node's `data.current` id with `{ data, type }`, so the document is self-contained:
+`deserializeFlow` validates it (elements array, node/edge shape, edge endpoints) and pushes every
+value back into the DataStore, receiving a fresh id. Legacy documents with top-level `x`/`y`/`zoom`
+(the introduction flow) and versions up to `FLOW_VERSION` are accepted; newer versions are
+rejected.
+
+Storage keys:
+
+| Key              | Content                                                                  |
+| ---------------- | ------------------------------------------------------------------------ |
+| `flow__settings` | UI settings (unchanged)                                                  |
+| `flow__index`    | Flow-library metadata `[{ id, title, createdAt, updatedAt, nodeCount }]` |
+| `flow__<id>`     | One flow document                                                        |
+| `flow__autosave` | Latest session snapshot; not listed in the flow library                  |
+
+The index is rebuilt from `storage.keys()` if missing or corrupt. `saveFlow` writes the document
+and upserts the index; `autosave` only writes the session snapshot. `App` restores the session
+once the React Flow viewport is initialized, and `useAutosave` debounces store changes into
+`autosave()` (skipped while restoring, in demo mode, or when an embedder supplies a flow). Write
+failures (for example quota exhaustion) are logged to the terminal and never interrupt editing.
+Import/export use the same schema; exported files are downloaded through `download()`.
+
+### Embedding
+
+`onFlowSaveCallback` is still honored: when an embedder passes it, Save hands the canvas to the
+host instead of writing to local storage. Without it, Save uses the local flow library.
 
 ## URL base and deployment
 

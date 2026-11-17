@@ -46,6 +46,26 @@ mirrored into the terminal.
 2. Open **Help → Introduction Flow** (or type `intro` in the terminal).
 3. Select any node to inspect its output; connect new blocks to explore.
 
+### Saving and sharing flows
+
+This build is a standalone workspace, not a hosted demo: **everything is saved in your browser**,
+with no account and no backend.
+
+- **Autosave** — edits are written to a local session snapshot after a short pause. Reloading the
+  page restores the last canvas, viewport, and node data.
+- **Save / Save as** — `Ctrl/Cmd+S` stores the current flow in the local flow library.
+  `File → Open…` (`Ctrl/Cmd+O`) lists saved flows with open, rename, duplicate, export, and delete.
+- **Export / Import** — `File → Export flow` downloads a self-contained `.datablocks.json`
+  document with every node result embedded; `File → Import flow…` loads such a file (v1 and the
+  legacy layout used by the introduction flow). Invalid files are rejected with an error in the
+  terminal and leave the canvas untouched.
+- **Storage limits** — the browser origin has a finite storage quota. Datasets and map outputs are
+  embedded in saved and exported flows, so large inputs grow the document quickly; export a flow
+  to keep a copy and remove old library entries when storage fills up.
+- **One tab at a time** — concurrent tabs do not merge changes; the last write wins.
+
+Unlike the reference demo, nothing is uploaded and login/sign-up are not required.
+
 ---
 
 ## Getting started

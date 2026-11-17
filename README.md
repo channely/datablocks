@@ -56,17 +56,24 @@ with no account and no backend.
 - **Save / Save as** — `Ctrl/Cmd+S` stores the current flow in the local flow library.
   `File → Open…` (`Ctrl/Cmd+O`) lists saved flows with open, rename, duplicate, export, and delete.
 - **Export / Import** — `File → Export flow` downloads a self-contained `.datablocks.json`
-  document with every node result embedded; `File → Import flow…` loads such a file (v1 and the
-  legacy layout used by the introduction flow). Invalid files are rejected with an error in the
-  terminal and leave the canvas untouched.
+  document (format version 2) with every node result embedded once: nodes that pass the same
+  dataset through share one payload entry, so exports of long chains stay small.
+  `File → Import flow…` loads v2, v1, and the legacy layout used by the introduction flow.
+  Invalid files are rejected with an error in the terminal and leave the canvas untouched.
+  **datablocks v1.2 and earlier cannot open version 2 files**; open them with v1.3 or newer.
 - **Undo / redo** — `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z` (or **View → Undo/Redo**) step through
   canvas edits: adding and deleting nodes or connections, dragging, and block settings. Bursts
   of typing on one node undo as one step. Loading, creating, or importing a flow starts a fresh
   history.
 - **Storage limits** — the browser origin has a finite storage quota. Datasets and map outputs are
-  embedded in saved and exported flows, so large inputs grow the document quickly; export a flow
-  to keep a copy and remove old library entries when storage fills up.
-- **One tab at a time** — concurrent tabs do not merge changes; the last write wins.
+  embedded in saved and exported flows, so large inputs grow the document quickly. `File → Open…`
+  shows current usage and quota, and the terminal warns once usage passes 80%; export a flow to
+  keep a copy and remove old library entries when storage fills up. After the first save the app
+  asks the browser to keep its storage persistent (the browser may decline).
+- **Closing the tab** — a pending autosave is written immediately when the page is hidden or
+  closed, so edits made just before closing are kept.
+- **One tab at a time** — concurrent tabs do not merge changes; the last write wins. When another
+  tab of the editor starts editing, the terminal shows a warning.
 
 Unlike the reference demo, nothing is uploaded and login/sign-up are not required.
 

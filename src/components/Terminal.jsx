@@ -1,12 +1,26 @@
 /**
  * Log console and command line. Console output from the JS sandbox is forwarded through
- * console-feed; supported commands are `help`, `intro`, and `clear`.
+ * console-feed; supported commands are `help`, `intro`, `stats`, and `clear`.
  */
 import React, { memo, useState } from "react";
 import { Box, Flex, Input, useTheme } from "@chakra-ui/react";
 import { Console, Decode, Hook } from "console-feed";
 import useStore from "../store";
 import execution from "../lib/execution";
+import dataStore from "../lib/dataStore";
+import { getPerfSnapshot } from "../lib/perf";
+
+/** Snapshot printed by the `stats` command; also the observation point for benchmarks and E2E. */
+const collectStats = () => {
+  const state = useStore.getState();
+  return {
+    nodes: state.nodes.length,
+    edges: state.edges.length,
+    dataStore: dataStore.size,
+    history: { past: state.history.past.length, future: state.history.future.length },
+    ...getPerfSnapshot(),
+  };
+};
 
 const ConsoleComponent = memo(({ logs, addLogs }) => {
   const theme = useTheme();
@@ -29,7 +43,7 @@ const HELP_LOGS = [
   {
     method: "log",
     data: [
-      "You can use the following commands:\n> help - shows this information\n> intro - loads the intro a flow\n> clear - clears this view",
+      "You can use the following commands:\n> help - shows this information\n> intro - loads the intro a flow\n> stats - prints node, edge, cache, history, and timing counters\n> clear - clears this view",
     ],
   },
   {
@@ -72,6 +86,12 @@ const Terminal = memo(() => {
             e.target.input.value = "";
             loadFlow("introduction");
             clearLogs();
+          } else if (value === "stats") {
+            e.target.input.value = "";
+            addLogs([
+              { method: "command", data: ["stats"] },
+              { method: "info", data: [`stats ${JSON.stringify(collectStats())}`] },
+            ]);
           } else if (value === "clear") {
             e.target.input.value = "";
             clearLogs();

@@ -202,6 +202,7 @@ const HeaderTools = ({ onFlowTitleChange }) => {
               { label: "Clear", onSelect: clear },
             ]}
             label={<HeaderLabel style={{ marginRight: 0 }}>File</HeaderLabel>}
+            testId="menu-file"
           />
         )}
         <Dropdown
@@ -219,6 +220,7 @@ const HeaderTools = ({ onFlowTitleChange }) => {
             { label: "All nodes", onSelect: loadAllNodes },
           ]}
           label={<HeaderLabel style={{ marginRight: 0 }}>View</HeaderLabel>}
+          testId="menu-view"
         />
         <Dropdown
           items={[
@@ -228,6 +230,7 @@ const HeaderTools = ({ onFlowTitleChange }) => {
             },
           ]}
           label={<HeaderLabel style={{ marginRight: 0 }}>Help</HeaderLabel>}
+          testId="menu-help"
         />
         <Flex ml="auto" alignItems="center">
           {!demoMode && statusLabel && (

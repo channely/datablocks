@@ -4,6 +4,47 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions use
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] — 2026-11-17
+
+Performance and data reliability for large flows (measured on a generated 28-node flow with a
+20k-row dataset, `scripts/bench.mjs`).
+
+### Changed
+
+- Flow documents are now **version 2**: datasets are stored once in a top-level `payloads` table
+  and nodes reference them, so pass-through chains no longer duplicate data (benchmark export
+  97.9 MB → 20.1 MB). Version 1 and legacy files still open; datablocks v1.2 and earlier cannot
+  open version 2 files.
+- First load only ships the editor: Vega, Mapbox, Prettier, Showdown, and Turf buffer load on
+  demand, and highlight.js registers JavaScript only (empty canvas 5.1 MB → 1.45 MB of JS,
+  1.56 MB → 0.47 MB gzip).
+- Blocks re-render only when their own upstream changes; dragging no longer rescans datasets.
+  Column detection is cached per dataset, and Stats, Filter, Grid, Geo view, and Simplify
+  memoize their work.
+- Loading a flow connects edges as soon as nodes have mounted instead of after a fixed 250 ms,
+  and chart nodes start loading the Vega runtime when they mount (benchmark import-to-settled
+  1085 ms → ~480 ms).
+- Undo/redo reuses payloads by reference instead of deep-cloning them (`db:undo` 73 ms → <1 ms).
+- Merge derives its join from its inputs and stores only the selected columns; the raw
+  `baseData`/`insertData` copies older versions kept in node data are dropped on load.
+- Geocode publishes progress every 50 rows instead of once per row.
+
+### Added
+
+- DataStore garbage collection: entries no node references are released, and republishing the
+  same dataset creates no new entry (benchmark: 432 → 20 entries after 20 Filter edits).
+- `stats` terminal command with node/edge/DataStore counts, history depth, timings, and cache
+  counters.
+- Storage hardening: pending autosaves flush when the tab is hidden or closed, persistent storage
+  is requested after the first save, the flow library shows storage usage and the terminal warns
+  above 80% of quota, and a warning appears when another tab edits at the same time.
+- Benchmark tooling: `scripts/make-bench-flow.mjs` and `scripts/bench.mjs`.
+
+### Fixed
+
+- Merge's row count was never updated; it now reflects the joined rows.
+- Rename Columns edited its settings array in place.
+
 ## [1.2.0] — 2026-11-17
 
 ### Added

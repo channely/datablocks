@@ -1,6 +1,6 @@
 {
   "name": "datablocks",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "A node-based editor for data processing, geo analysis, and visualization in the browser.",
   "private": true,
   "type": "module",
@@ -70,6 +70,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.65.1",
     "@vitejs/plugin-react": "^5.2.0",
     "eslint": "^9.39.4",
     "eslint-plugin-react": "^7.37.5",

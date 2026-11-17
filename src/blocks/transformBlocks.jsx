@@ -11,14 +11,14 @@ import { Handle, Position } from "react-flow-renderer";
 import orderBy from "lodash-es/orderBy";
 import groupBy from "lodash-es/groupBy";
 import { CodeJar } from "codejar";
-import hljs from "highlight.js";
-import prettier from "prettier/standalone";
-import * as babelPlugin from "prettier/plugins/babel";
+import hljs from "highlight.js/lib/core";
+import javascriptLanguage from "highlight.js/lib/languages/javascript";
 import ColorscalePicker, { Colorscale } from "react-colorscales";
 import { extent } from "d3-array";
 import { scaleSequential } from "d3-scale";
 import useStore from "../store";
 import useInputData from "../hooks/useInputData";
+import useUpdateNodeCurrent from "../hooks/useUpdateNodeCurrent";
 import {
   TYPES,
   formatValue,
@@ -30,6 +30,9 @@ import {
 import execution from "../lib/execution";
 import ColumnSelect from "../components/ColumnSelect";
 import { withNodeWrapper } from "../components/NodeWrapper";
+
+// Only the JavaScript grammar is needed; the full highlight.js bundle ships ~190 languages.
+hljs.registerLanguage("javascript", javascriptLanguage);
 
 const labelStyle = { mb: 1, color: "silverDarken30" };
 
@@ -112,6 +115,7 @@ const FilterComponent = ({ id, data }) => {
   const current = data.current;
 
   const columns = useMemo(() => getColumnNames(input), [input]);
+  const columnType = useMemo(() => getColumnType(input, column), [input, column]);
 
   const run = useCallback(() => {
     const condition = CONDITIONS.find((condition) => condition.id === conditionId);
@@ -155,7 +159,7 @@ const FilterComponent = ({ id, data }) => {
           <>
             <FormLabel {...labelStyle}>Condition:</FormLabel>
             <ConditionSelect
-              columnType={getColumnType(input, column)}
+              columnType={columnType}
               value={conditionId}
               onChange={(event) =>
                 updateNodeData({
@@ -189,18 +193,20 @@ export const Filter = withNodeWrapper(FilterComponent, { targetHandle: false });
 
 /* ----------------------------------- Merge --------------------------------- */
 
-const mergeData = (baseData, insertData, baseColumn, insertColumn, baseType) => {
-  if (!baseData) return null;
-  if (!insertData || !baseColumn || !insertColumn) {
-    return { data: baseData, count: 0 };
-  }
-  const lookup = new Map(insertData.map((row) => [row[insertColumn], row]));
-  const emptyRow = getColumnNames(insertData).reduce((result, name) => {
+/**
+ * Left-joins `insertRows` onto `baseRows` by column value. Without a second input or column
+ * selection the base value passes through unchanged.
+ */
+const mergeData = (base, baseRows, insertRows, baseColumn, insertColumn, baseType) => {
+  if (!baseRows) return { current: undefined, count: 0 };
+  if (!insertRows || !baseColumn || !insertColumn) return { current: base, count: 0 };
+  const lookup = new Map(insertRows.map((row) => [row[insertColumn], row]));
+  const emptyRow = getColumnNames(insertRows).reduce((result, name) => {
     result[name] = null;
     return result;
   }, {});
   let count = 0;
-  const data = baseData.map((row) => {
+  const data = baseRows.map((row) => {
     const match = lookup.get(row[baseColumn]);
     if (match) {
       count += 1;
@@ -214,11 +220,15 @@ const mergeData = (baseData, insertData, baseColumn, insertColumn, baseType) => 
 
 const convert = (data, type) => (type === TYPES.GEOJSON ? geoToRows(data) : data);
 
+/**
+ * The merged result is derived from both inputs and the two column names, then published with
+ * `useUpdateNodeCurrent`. Node data only stores the column names (no raw rows, see invariant 1).
+ */
 const MergeComponent = ({ id, data, color }) => {
   const updateNodeData = useStore((state) => state.updateNodeData);
   const baseHandle = `${id}-base`;
   const insertHandle = `${id}-insert`;
-  const { baseColumn, insertColumn, baseData, insertData, mergeCount } = data;
+  const { baseColumn, insertColumn } = data;
 
   const [base, baseType, baseValid] = useInputData(baseHandle, [TYPES.DATASET, TYPES.GEOJSON]);
   const [insert, insertType, insertValid] = useInputData(insertHandle, [
@@ -229,44 +239,36 @@ const MergeComponent = ({ id, data, color }) => {
   const baseRows = useMemo(() => convert(base, baseType), [baseType, base]);
   const insertRows = useMemo(() => convert(insert, insertType), [insertType, insert]);
 
+  const merged = useMemo(
+    () =>
+      mergeData(
+        baseValid ? base : null,
+        baseValid ? baseRows : null,
+        insertValid ? insertRows : null,
+        baseColumn,
+        insertColumn,
+        baseType,
+      ),
+    [base, baseRows, insertRows, baseValid, insertValid, baseColumn, insertColumn, baseType],
+  );
+  useUpdateNodeCurrent(id, merged.current);
+
   const onBaseColumnChange = useCallback(
-    (column) => {
-      const result = mergeData(baseData, insertData, column, insertColumn, baseType);
-      updateNodeData({ id, data: { ...result, baseColumn: column } });
-    },
-    [baseData, insertData, insertColumn, baseType, id, updateNodeData],
+    (column) => updateNodeData({ id, data: { baseColumn: column } }),
+    [id, updateNodeData],
   );
-
+  // ColumnSelect auto-selects a column when the input changes; that write is not a user edit.
   const onBaseDataChange = useCallback(
-    ({ data: newData, column }) => {
-      const result = mergeData(newData, insertData, column, insertColumn, baseType);
-      updateNodeData({
-        id,
-        data: { ...result, baseData: newData, baseColumn: column },
-        transient: true,
-      });
-    },
-    [id, insertData, insertColumn, baseType, updateNodeData],
+    ({ column }) => updateNodeData({ id, data: { baseColumn: column }, transient: true }),
+    [id, updateNodeData],
   );
-
   const onInsertColumnChange = useCallback(
-    (column) => {
-      const result = mergeData(baseData, insertData, baseColumn, column, baseType);
-      updateNodeData({ id, data: { ...result, insertColumn: column } });
-    },
-    [baseData, insertData, baseColumn, baseType, id, updateNodeData],
+    (column) => updateNodeData({ id, data: { insertColumn: column } }),
+    [id, updateNodeData],
   );
-
   const onInsertDataChange = useCallback(
-    ({ data: newData, column }) => {
-      const result = mergeData(baseData, newData, baseColumn, column, baseType);
-      updateNodeData({
-        id,
-        data: { ...result, insertData: newData, insertColumn: column },
-        transient: true,
-      });
-    },
-    [baseData, baseColumn, baseType, id, updateNodeData],
+    ({ column }) => updateNodeData({ id, data: { insertColumn: column }, transient: true }),
+    [id, updateNodeData],
   );
 
   return (
@@ -290,7 +292,9 @@ const MergeComponent = ({ id, data, color }) => {
         inputData={insertRows}
         inputValid={insertValid}
       />
-      <Box mt={2}>merged {mergeCount} rows</Box>
+      <Box mt={2} data-testid="merge-count">
+        merged {merged.count} rows
+      </Box>
     </Box>
   );
 };
@@ -545,10 +549,10 @@ const RenameColumnsComponent = ({ id, data }) => {
   }, [input, id, inputs, updateNodeData]);
 
   const change = (value, index, field) => {
-    const next = inputs.map((input, i) => {
-      if (i === index) input[field] = value || "";
-      return input;
-    });
+    // Copy the edited entry; mutating it in place would also rewrite the undo snapshot.
+    const next = inputs.map((input, i) =>
+      i === index ? { ...input, [field]: value || "" } : input,
+    );
     updateNodeData({ id, data: { inputs: next } });
   };
 
@@ -685,13 +689,19 @@ const PRETTIER_OPTIONS = {
   arrowParens: "avoid",
   trailingComma: "none",
   printWidth: 60,
-  plugins: [babelPlugin],
 };
 
-/** Formats user code for display; keeps the original text when it does not parse. */
+/**
+ * Formats user code for display; keeps the original text when it does not parse. Prettier and its
+ * Babel parser (~1MB) are loaded on first use so they stay out of the initial bundle.
+ */
 const formatCode = async (code) => {
   try {
-    return await prettier.format(code, PRETTIER_OPTIONS);
+    const [prettier, babelPlugin] = await Promise.all([
+      import("prettier/standalone"),
+      import("prettier/plugins/babel"),
+    ]);
+    return await prettier.format(code, { ...PRETTIER_OPTIONS, plugins: [babelPlugin] });
   } catch {
     return code;
   }
@@ -813,6 +823,8 @@ const parseGeocodeResult = (json, provider) => {
   return json.items?.[0]?.position || {};
 };
 
+const GEOCODE_BATCH = 50;
+
 const GeocodeComponent = ({ id, data }) => {
   const geocodeHandle = `${id}-geocode`;
   const [input, , valid] = useInputData(geocodeHandle, [TYPES.DATASET]);
@@ -860,9 +872,12 @@ const GeocodeComponent = ({ id, data }) => {
       const response = await fetch(url);
       const json = await response.json();
       const { lat = "", lng = "" } = parseGeocodeResult(json, data.provider);
-      rows[index].latitude = lat;
-      rows[index].longitude = lng;
-      updateNodeData({ id, data: { current: rows } });
+      rows[index] = { ...rows[index], latitude: lat, longitude: lng };
+      // Publish progress every GEOCODE_BATCH rows (and at the end) instead of once per request;
+      // each publish is a fresh array so downstream blocks see a new value.
+      if ((index + 1) % GEOCODE_BATCH === 0 || index === rows.length - 1) {
+        updateNodeData({ id, data: { current: rows.slice() }, transient: true });
+      }
       if (lat === "" || lng === "" || (data.provider === "googlemaps" && json.status !== "OK")) {
         addLogs({
           method: "error",

@@ -39,3 +39,6 @@ test-results/
 
 # OS files
 Thumbs.db
+
+# Local benchmark fixtures
+tmp/

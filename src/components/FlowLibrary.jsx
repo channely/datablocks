@@ -20,6 +20,7 @@ import {
 import useStore from "../store";
 import SectionLabel from "./SectionLabel";
 import { useFlowCommands } from "../hooks/useFlowCommands";
+import { STORAGE_WARN_RATIO, formatBytes, getStorageEstimate } from "../lib/storageHealth";
 
 const formatDate = (iso) => (iso ? new Date(iso).toLocaleString() : "—");
 
@@ -139,10 +140,12 @@ const FlowLibraryModal = () => {
   const { exportFlow, importFlowFile } = useFlowCommands();
   const [flows, setFlows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [estimate, setEstimate] = useState(null);
   const fileInputRef = useRef(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    getStorageEstimate().then(setEstimate);
     try {
       setFlows(await listFlows());
     } catch (error) {
@@ -259,6 +262,19 @@ const FlowLibraryModal = () => {
               ))
             )}
           </Box>
+          {estimate && (
+            <Box
+              mt={4}
+              fontSize="11px"
+              color={estimate.ratio >= STORAGE_WARN_RATIO ? "orange.300" : "silverDarken15"}
+              data-testid="storage-estimate"
+            >
+              Browser storage: {formatBytes(estimate.usage)} used of {formatBytes(estimate.quota)} (
+              {(estimate.ratio * 100).toFixed(1)}%)
+              {estimate.ratio >= STORAGE_WARN_RATIO &&
+                " — almost full; export and delete old flows."}
+            </Box>
+          )}
         </ModalBody>
       </ModalContent>
     </Modal>

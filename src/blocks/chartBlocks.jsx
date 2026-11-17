@@ -2,15 +2,44 @@
  * Vega chart blocks. Each chart consumes a dataset, keeps its column selection in node data,
  * and forwards the input dataset downstream unchanged.
  */
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useMemo } from "react";
 import { Box, Checkbox, Flex, FormLabel, useTheme } from "@chakra-ui/react";
-import { Vega } from "react-vega";
 import useStore from "../store";
 import useInputData from "../hooks/useInputData";
 import useUpdateNodeCurrent from "../hooks/useUpdateNodeCurrent";
 import { TYPES, getColumnNames } from "../lib/types";
 import ColumnSelect from "../components/ColumnSelect";
 import { withNodeWrapper } from "../components/NodeWrapper";
+
+const loadVegaChart = () => import("../components/VegaChart");
+const VegaChart = lazy(loadVegaChart);
+
+/**
+ * Theme for chart blocks. Mounting any chart node also starts fetching the Vega runtime, so on
+ * flow load the chunk downloads and parses while edges are still being connected instead of
+ * after the first dataset arrives.
+ */
+const useChartTheme = () => {
+  useEffect(() => {
+    loadVegaChart();
+  }, []);
+  return useTheme();
+};
+
+/** Reserves the chart's footprint while the Vega runtime loads so the node does not jump. */
+const Chart = ({ spec, data }) => (
+  <Suspense
+    fallback={
+      <Box
+        width={`${(spec.width || 300) + 60}px`}
+        height={`${(spec.height || 150) + 50}px`}
+        data-testid="chart-loading"
+      />
+    }
+  >
+    <VegaChart spec={spec} data={data} />
+  </Suspense>
+);
 
 const axisConfig = (theme) => ({
   domainColor: theme.colors.bg.light,
@@ -48,7 +77,7 @@ const useColumnSync = ({ id, current, valid, xColumn, yColumn, updateNodeData })
 /* --------------------------------- Barchart -------------------------------- */
 
 const BarChartComponent = ({ id, data, color }) => {
-  const theme = useTheme();
+  const theme = useChartTheme();
   const updateNodeData = useStore((state) => state.updateNodeData);
   const addLogs = useStore((state) => state.addLogs);
   const [current, , valid] = useInputData(id, [TYPES.DATASET]);
@@ -133,7 +162,7 @@ const BarChartComponent = ({ id, data, color }) => {
       ) : (
         "← connect dataset"
       )}
-      <Box>{spec && <Vega spec={spec} data={vegaData} />}</Box>
+      <Box>{spec && <Chart spec={spec} data={vegaData} />}</Box>
     </Box>
   );
 };
@@ -143,7 +172,7 @@ export const BarChart = withNodeWrapper(BarChartComponent);
 /* -------------------------------- Histogram -------------------------------- */
 
 const HistogramComponent = ({ id, data, color }) => {
-  const theme = useTheme();
+  const theme = useChartTheme();
   const updateNodeData = useStore((state) => state.updateNodeData);
   const addLogs = useStore((state) => state.addLogs);
   const [current, , valid] = useInputData(id, [TYPES.DATASET]);
@@ -195,7 +224,7 @@ const HistogramComponent = ({ id, data, color }) => {
         inputData={current}
         inputValid={valid}
       />
-      {spec && <Vega spec={spec} data={vegaData} />}
+      {spec && <Chart spec={spec} data={vegaData} />}
     </Box>
   );
 };
@@ -205,7 +234,7 @@ export const Histogram = withNodeWrapper(HistogramComponent);
 /* -------------------------------- Scatterplot ------------------------------ */
 
 const ScatterplotComponent = ({ id, data, color }) => {
-  const theme = useTheme();
+  const theme = useChartTheme();
   const updateNodeData = useStore((state) => state.updateNodeData);
   const addLogs = useStore((state) => state.addLogs);
   const [current, , valid] = useInputData(id, [TYPES.DATASET]);
@@ -274,7 +303,7 @@ const ScatterplotComponent = ({ id, data, color }) => {
               inputValid={valid}
             />
           </Flex>
-          <Box>{spec && <Vega spec={spec} data={vegaData} />}</Box>
+          <Box>{spec && <Chart spec={spec} data={vegaData} />}</Box>
         </>
       ) : (
         "← connect dataset"
@@ -288,7 +317,7 @@ export const Scatterplot = withNodeWrapper(ScatterplotComponent);
 /* -------------------------------- Timeseries ------------------------------- */
 
 const TimeseriesComponent = ({ id, data, color }) => {
-  const theme = useTheme();
+  const theme = useChartTheme();
   const updateNodeData = useStore((state) => state.updateNodeData);
   const addLogs = useStore((state) => state.addLogs);
   const [current, , valid] = useInputData(id, [TYPES.DATASET]);
@@ -358,7 +387,7 @@ const TimeseriesComponent = ({ id, data, color }) => {
               inputValid={valid}
             />
           </Flex>
-          <Box>{spec && <Vega spec={spec} data={vegaData} />}</Box>
+          <Box>{spec && <Chart spec={spec} data={vegaData} />}</Box>
         </>
       ) : (
         "← connect dataset"

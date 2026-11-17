@@ -23,6 +23,13 @@ import { nanoid } from "nanoid";
 import { applyEdgeChanges, applyNodeChanges, isEdge, isNode } from "react-flow-renderer";
 import execution from "../lib/execution";
 import dataStore from "../lib/dataStore";
+import { count, timed } from "../lib/perf";
+import {
+  STORAGE_WARN_RATIO,
+  formatBytes,
+  getStorageEstimate,
+  requestPersistentStorage,
+} from "../lib/storageHealth";
 import { getFlowRect } from "../lib/download";
 import {
   DEFAULT_TITLE,
@@ -110,15 +117,17 @@ const snapshot = (state, overrides = {}) => {
     ? instance.toObject()
     : { nodes: state.nodes, edges: state.edges, viewport: { x: 0, y: 0, zoom: 1 } };
   const id = Object.prototype.hasOwnProperty.call(overrides, "id") ? overrides.id : state.id;
-  return serializeFlow({
-    nodes,
-    edges,
-    viewport,
-    id,
-    title: overrides.title ?? state.title,
-    createdAt: overrides.createdAt ?? state.createdAt,
-    updatedAt: overrides.updatedAt,
-  });
+  return timed("serialize", () =>
+    serializeFlow({
+      nodes,
+      edges,
+      viewport,
+      id,
+      title: overrides.title ?? state.title,
+      createdAt: overrides.createdAt ?? state.createdAt,
+      updatedAt: overrides.updatedAt,
+    }),
+  );
 };
 
 /**
@@ -126,6 +135,19 @@ const snapshot = (state, overrides = {}) => {
  * later load must invalidate an earlier timer; otherwise stale edges land on the new canvas.
  */
 let loadGeneration = 0;
+
+/**
+ * Run `fn` once freshly set nodes have committed and painted (one frame, then a macrotask), so
+ * React Flow has measured their handles before edges reference them. This replaces a fixed
+ * 250ms delay that left the canvas idle on every load.
+ */
+const afterNodesMount = (fn) => {
+  if (typeof requestAnimationFrame === "undefined") {
+    setTimeout(fn, 0);
+    return;
+  }
+  requestAnimationFrame(() => setTimeout(fn, 0));
+};
 
 const HISTORY_LIMIT = 100;
 /** A burst of edits on the same node (typing, slider) becomes a single undo step. */
@@ -147,16 +169,55 @@ const resetHistoryTracking = () => {
 };
 
 /**
- * History entries reuse the flow serialization format, so `data.current` payloads are pinned by
- * reference while editing and re-inserted through `dataStore.set` on restore.
+ * Releases DataStore entries no node references any more. Calls within one tick are coalesced.
+ * History snapshots hold payloads by reference (not by id), so collecting here never breaks undo.
  */
-const captureHistory = (state) =>
-  serializeFlow({ nodes: state.nodes, edges: state.edges }).elements;
+let gcTimer = null;
+let storageWarned = false;
+/**
+ * After a successful write: ask for persistent storage once, and warn (once per session) when
+ * usage passes STORAGE_WARN_RATIO of the quota, before writes start failing.
+ */
+const afterStorageWrite = async () => {
+  requestPersistentStorage();
+  if (storageWarned) return;
+  const estimate = await getStorageEstimate();
+  if (!estimate || estimate.ratio < STORAGE_WARN_RATIO) return;
+  storageWarned = true;
+  useStore.getState().addLogs({
+    method: "warn",
+    data: [
+      `Browser storage is ${Math.round(estimate.ratio * 100)}% full (${formatBytes(estimate.usage)} of ${formatBytes(estimate.quota)}). Export and delete old flows to keep saving.`,
+    ],
+  });
+};
+const collectData = () => {
+  gcTimer = null;
+  const ids = new Set();
+  useStore.getState().nodes.forEach((node) => {
+    const current = node.data?.current;
+    if (typeof current === "string") ids.add(current);
+  });
+  const released = dataStore.retainOnly(ids);
+  if (released) count("dataGcReleased", released);
+};
+const scheduleDataGc = () => {
+  if (gcTimer === null) gcTimer = setTimeout(collectData, 0);
+};
 
-const pushHistoryEntry = (elements) => {
+/**
+ * History entries reuse the flow serialization format (`{ elements, payloads }`), so payloads are
+ * pinned by reference while editing and re-inserted through `dataStore.set` on restore.
+ */
+const captureHistory = (state) => {
+  const { elements, payloads } = serializeFlow({ nodes: state.nodes, edges: state.edges });
+  return { elements, payloads };
+};
+
+const pushHistoryEntry = (entry) => {
   useStore.setState((state) => ({
     history: {
-      past: state.history.past.concat([elements]).slice(-HISTORY_LIMIT),
+      past: state.history.past.concat([entry]).slice(-HISTORY_LIMIT),
       future: [],
     },
   }));
@@ -179,20 +240,11 @@ const recordRemovalHistory = (state) => {
  * Swap the canvas for a historical snapshot. Payloads that only the replaced state referenced are
  * released; snapshots keep their own references, so undoing a delete restores the data.
  */
-const applyHistorySnapshot = (elements) => {
-  const flow = deserializeFlow({ version: FLOW_VERSION, elements });
+const applyHistorySnapshot = (entry) => {
+  const flow = deserializeFlow({ version: FLOW_VERSION, ...entry });
   const { nodes, edges } = splitFlow(flow);
-  const state = useStore.getState();
-  const used = new Set(
-    nodes.map((node) => node.data?.current).filter((current) => typeof current === "string"),
-  );
-  state.nodes
-    .map((node) => node.data?.current)
-    .filter((current) => typeof current === "string")
-    .forEach((current) => {
-      if (!used.has(current)) dataStore.remove(current);
-    });
   useStore.setState({ nodes, edges, selectedNode: null, selectedNodeId: null });
+  scheduleDataGc();
 };
 
 /** Replace editor contents from a deserialized flow (edges are deferred like React Flow expects). */
@@ -211,14 +263,15 @@ const applyFlow = (flow, meta = {}) => {
   state.clearHistory();
   const generation = ++loadGeneration;
   // Edges are added after the nodes have mounted; mirrors the reference loading behavior.
-  setTimeout(() => {
+  afterNodesMount(() => {
     if (generation !== loadGeneration) return;
     useStore.getState().addEdges(edges);
-  }, 250);
+  });
   useStore.setState({
     saveStatus: meta.saveStatus || "idle",
     lastSavedAt: meta.lastSavedAt || null,
   });
+  scheduleDataGc();
 };
 
 const uiStore = (set, get) => ({
@@ -290,27 +343,29 @@ const flowStore = (set, get) => ({
     lastHistoryAt = now;
     return true;
   },
-  undo: () => {
-    const { history } = get();
-    if (!history.past.length) return false;
-    const past = history.past.slice();
-    const elements = past.pop();
-    const future = [captureHistory(get()), ...history.future];
-    resetHistoryTracking();
-    applyHistorySnapshot(elements);
-    set({ history: { past, future } });
-    return true;
-  },
-  redo: () => {
-    const { history } = get();
-    if (!history.future.length) return false;
-    const [elements, ...future] = history.future;
-    const past = history.past.concat([captureHistory(get())]).slice(-HISTORY_LIMIT);
-    resetHistoryTracking();
-    applyHistorySnapshot(elements);
-    set({ history: { past, future } });
-    return true;
-  },
+  undo: () =>
+    timed("undo", () => {
+      const { history } = get();
+      if (!history.past.length) return false;
+      const past = history.past.slice();
+      const entry = past.pop();
+      const future = [captureHistory(get()), ...history.future];
+      resetHistoryTracking();
+      applyHistorySnapshot(entry);
+      set({ history: { past, future } });
+      return true;
+    }),
+  redo: () =>
+    timed("redo", () => {
+      const { history } = get();
+      if (!history.future.length) return false;
+      const [entry, ...future] = history.future;
+      const past = history.past.concat([captureHistory(get())]).slice(-HISTORY_LIMIT);
+      resetHistoryTracking();
+      applyHistorySnapshot(entry);
+      set({ history: { past, future } });
+      return true;
+    }),
   clearHistory: () => {
     resetHistoryTracking();
     set({ history: { past: [], future: [] } });
@@ -351,21 +406,30 @@ const flowStore = (set, get) => ({
    * marks effect-driven writes, such as auto-fills when an upstream dataset changes.
    */
   updateNodeData: ({ id, data = {}, transient = false }) => {
-    if (!transient && Object.keys(data).some((key) => key !== "current")) {
+    const target = get().nodes.find((node) => node.id === id);
+    if (!target) return;
+    const patch = { ...data };
+    let replacedCurrent = false;
+    if (Object.prototype.hasOwnProperty.call(patch, "current")) {
+      if (dataStore.isSameValue(target.data?.current, patch.current)) {
+        // A pass-through republishing the same reference: keep the id so nothing downstream
+        // re-renders or recomputes.
+        delete patch.current;
+      } else {
+        patch.current = dataStore.set(patch.current);
+        replacedCurrent = true;
+      }
+    }
+    const keys = Object.keys(patch);
+    if (!keys.length || keys.every((key) => Object.is(target.data?.[key], patch[key]))) return;
+    if (!transient && keys.some((key) => key !== "current")) {
       get().recordHistory(`update:${id}`);
     }
-    const nodes = get().nodes.map((node) => {
-      if (node.id === id) {
-        if (Object.prototype.hasOwnProperty.call(data, "current")) {
-          const current = dataStore.set(data.current);
-          node.data = { ...node.data, ...data, current };
-        } else {
-          node.data = { ...node.data, ...data };
-        }
-      }
-      return node;
+    const nextData = { ...target.data, ...patch };
+    set({
+      nodes: get().nodes.map((node) => (node.id === id ? { ...node, data: nextData } : node)),
     });
-    set({ nodes });
+    if (replacedCurrent) scheduleDataGc();
   },
   addEdge: (edge = {}) => {
     const addElement = get().addElement;
@@ -383,16 +447,21 @@ const flowStore = (set, get) => ({
     return addElement(newEdge);
   },
   setConnectionValid: ({ source, target, isValid }) => {
+    const label = isValid ? "×" : "⚠";
+    let changed = false;
     const edges = get().edges.map((e) => {
       if (
         (e.source === source || e.sourceHandle === source) &&
-        (e.target === target || e.targetHandle === target)
+        (e.target === target || e.targetHandle === target) &&
+        (e.animated !== isValid || e.label !== label)
       ) {
-        return { ...e, animated: isValid, label: isValid ? "×" : "⚠" };
+        changed = true;
+        return { ...e, animated: isValid, label };
       }
       return e;
     });
-    set({ edges });
+    // Unchanged validity must not produce a new edges array (that re-renders every edge).
+    if (changed) set({ edges });
   },
   setId: (id) => set({ id }),
   setMeta: ({ id, title, is_public, updated_at, created_at }) =>
@@ -417,10 +486,10 @@ const flowStore = (set, get) => ({
     state.selectNode(null);
     state.clearHistory();
     const generation = ++loadGeneration;
-    setTimeout(() => {
+    afterNodesMount(() => {
       if (generation !== loadGeneration) return;
       state.addEdges(edges);
-    }, 250);
+    });
   },
   /** Load a static reference flow (for example `introduction`) from `public/data/flows`. */
   loadFlow: async (name) => {
@@ -447,6 +516,7 @@ const flowStore = (set, get) => ({
       await storage.setItem(flowId, flow);
       const meta = toMeta(flow);
       await upsertIndex(meta);
+      afterStorageWrite();
       set({
         id: flowId,
         title: flow.title,
@@ -475,7 +545,8 @@ const flowStore = (set, get) => ({
     const now = new Date().toISOString();
     try {
       const flow = snapshot(state, { updatedAt: now });
-      await storage.setItem(AUTOSAVE_KEY, flow);
+      await timed("autosave", () => storage.setItem(AUTOSAVE_KEY, flow));
+      afterStorageWrite();
       set({ saveStatus: "saved", lastSavedAt: now });
       return flow;
     } catch (error) {
@@ -587,6 +658,7 @@ const flowStore = (set, get) => ({
     get().setElements([]);
     get().setFlowTransform({ x: 0, y: 0, zoom: 1 });
     get().clearHistory();
+    scheduleDataGc();
   },
   /**
    * Serialize a flow for download. Without an id (or for the flow currently open) the live
@@ -595,18 +667,24 @@ const flowStore = (set, get) => ({
   exportFlow: async (id) => {
     const state = get();
     if (!id || id === state.id) {
-      return JSON.stringify(snapshot(state), null, 2);
+      return timed("export", () => JSON.stringify(snapshot(state)));
     }
     const stored = await storage.getItem(id);
     if (!stored) throw new Error(`Flow "${id}" was not found.`);
-    return JSON.stringify(stored, null, 2);
+    // Library entries may predate v2; re-serializing upgrades them and deduplicates payloads.
+    const { nodes, edges } = splitFlow(deserializeFlow(stored));
+    const flow = serializeFlow({ ...stored, nodes, edges });
+    scheduleDataGc();
+    return JSON.stringify(flow);
   },
   /** Parse, validate, and load a flow document. Throws on invalid input. */
   importFlow: async (input) => {
-    const parsed = typeof input === "string" ? JSON.parse(input) : input;
-    const flow = deserializeFlow(parsed);
-    applyFlow(flow, { saveStatus: "idle" });
-    return toMeta(flow);
+    return timed("import", () => {
+      const parsed = typeof input === "string" ? JSON.parse(input) : input;
+      const flow = deserializeFlow(parsed);
+      applyFlow(flow, { saveStatus: "idle" });
+      return toMeta(flow);
+    });
   },
   removeElements: (elements) => {
     const ids = elements.map((e) => e.id);
@@ -614,17 +692,8 @@ const flowStore = (set, get) => ({
     dragBaseline = null;
     const { nodes, edges, selectedNodeId } = get();
     const remaining = nodes.filter((n) => !ids.includes(n.id));
-    const removedCurrents = nodes
-      .filter((n) => ids.includes(n.id))
-      .map((n) => n.data?.current)
-      .filter((current) => typeof current === "string");
-    // Release cached payloads that no surviving node still references.
-    const stillUsed = new Set(
-      remaining.map((n) => n.data?.current).filter((current) => typeof current === "string"),
-    );
-    removedCurrents.forEach((current) => {
-      if (!stillUsed.has(current)) dataStore.remove(current);
-    });
+    // Cached payloads that no surviving node references are released by the next GC pass.
+    scheduleDataGc();
     set({
       nodes: remaining,
       edges: edges.filter(
@@ -638,6 +707,7 @@ const flowStore = (set, get) => ({
   setFlowInstance: (flowInstance) => set({ flowInstance }),
   setElements: (elements) => {
     set({ nodes: elements.filter(isNode), edges: elements.filter(isEdge) });
+    scheduleDataGc();
   },
   addNodes: (nodes) => set({ nodes: get().nodes.concat(nodes) }),
   addEdges: (edges) => set({ edges: get().edges.concat(edges) }),
@@ -660,7 +730,7 @@ const flowStore = (set, get) => ({
     );
     if (startDrag && !dragBaseline) {
       dragBaseline = {
-        elements: captureHistory(get()),
+        entry: captureHistory(get()),
         positions: new Map(nodes.map((node) => [node.id, `${node.position.x},${node.position.y}`])),
       };
     }
@@ -672,7 +742,7 @@ const flowStore = (set, get) => ({
         (node) => baseline.positions.get(node.id) !== `${node.position.x},${node.position.y}`,
       );
       if (moved) {
-        pushHistoryEntry(baseline.elements);
+        pushHistoryEntry(baseline.entry);
         lastHistoryKey = null;
         lastHistoryAt = 0;
       }

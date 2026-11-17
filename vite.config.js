@@ -14,14 +14,9 @@ export default defineConfig(({ command, isPreview }) => ({
     port: 3000,
   },
   build: {
-    rollupOptions: {
-      output: {
-        // Split the two heaviest, lazily used map/chart stacks into long-lived chunks.
-        manualChunks: {
-          "vendor-vega": ["vega", "react-vega"],
-          "vendor-mapbox": ["mapbox-gl", "react-map-gl"],
-        },
-      },
-    },
+    // No manualChunks: Rollup pulls every dependency of a manual chunk into it (React included),
+    // which forced the Vega and Mapbox chunks into the entry's modulepreload list. The lazy
+    // VegaChart/GeoView imports already split those stacks into their own async chunks.
+    chunkSizeWarningLimit: 1600,
   },
 }));

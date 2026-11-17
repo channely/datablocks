@@ -14,29 +14,36 @@ import useStore from "../store";
 import { TYPES } from "../lib/types";
 import useData from "./useData";
 
+const findSource = (state, id) =>
+  state.edges.find((e) => e.target === id || e.targetHandle === id)?.source;
+
 const useInputData = (id, types) => {
-  const edges = useStore((state) => state.edges);
-  const nodes = useStore((state) => state.nodes);
+  // Narrow selectors return primitives, so a block re-renders only when its own upstream edge or
+  // upstream value id changes — not on every drag frame or unrelated node edit.
+  const source = useStore((state) => findSource(state, id));
+  const sourceCurrent = useStore((state) => {
+    const sourceId = findSource(state, id);
+    if (!sourceId) return undefined;
+    return state.nodes.find((node) => node.id === sourceId)?.data?.current;
+  });
   const setConnectionValid = useStore((state) => state.setConnectionValid);
   const addLogs = useStore((state) => state.addLogs);
 
-  const edge = edges.find((e) => e.target === id || e.targetHandle === id);
-  const sourceNode = edge ? nodes.find((node) => node.id === edge.source) : undefined;
-  const [data, type] = useData(sourceNode?.data?.current);
+  const [data, type] = useData(sourceCurrent);
 
   const validTypes = types || Object.values(TYPES);
   const valid = validTypes.includes(type);
 
   useEffect(() => {
-    setConnectionValid({ source: edge?.source, target: id, isValid: valid });
-    if (sourceNode?.data?.current && !valid) {
+    setConnectionValid({ source, target: id, isValid: valid });
+    if (sourceCurrent && !valid) {
       addLogs({
         method: "error",
         data: [`Data input is not valid. Accepted types are: ${validTypes.join(",")}.`],
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, type, valid, sourceNode?.data?.current]);
+  }, [id, type, valid, source, sourceCurrent]);
 
   return [valid ? data : null, type, valid];
 };

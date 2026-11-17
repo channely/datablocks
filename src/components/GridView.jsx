@@ -12,49 +12,46 @@ import { ChevronDownIcon, ChevronUpIcon } from "./icons";
 const CELL_BORDER = "#333154";
 
 const GridView = memo(({ data = [], dataId }) => {
-  const [columns, setColumns] = useState([]);
-  const [rows, setRows] = useState([]);
-  const [sortState, setSortState] = useState([]);
-  const [sortIndex, setSortIndex] = useState(null);
+  // Column scans are cached per dataset (see getColumns), so deriving them here is cheap.
+  const columns = useMemo(() => getColumns(data), [data]);
+  // Per-column sort direction ("asc" | "desc" | null) plus the active column, reset per dataset.
+  const [sort, setSort] = useState({ data: null, states: [], index: null });
+  const current = sort.data === data;
+  const sortState = useMemo(() => (current ? sort.states : []), [current, sort.states]);
+  const sortIndex = current ? sort.index : null;
 
   useEffect(() => {
-    const nextColumns = getColumns(data);
-    setRows(data);
-    setColumns(nextColumns);
-    setSortState(nextColumns.map(() => null));
-  }, [dataId, data]);
+    setSort({ data, states: columns.map(() => null), index: null });
+  }, [dataId, data, columns]);
 
-  const gridData = useMemo(
-    () =>
-      [
-        columns.reduce((acc, column) => {
-          acc[column.name] = column.name;
-          return acc;
-        }, {}),
-      ].concat(rows),
-    [columns, rows],
-  );
+  // Rows are read by index from the (possibly sorted) dataset; no header row is prepended.
+  const rows = useMemo(() => {
+    if (sortIndex === null || !columns[sortIndex]) return data;
+    const sorted = sortBy(data, [columns[sortIndex].name]);
+    return sortState[sortIndex] === "desc" ? sorted.reverse() : sorted;
+  }, [data, columns, sortIndex, sortState]);
 
   const onSort = useCallback(
     (index) => {
-      const name = columns[index].name;
-      const state = sortState[index];
-      const sorted = sortBy(rows, [name]);
-      if (state === "asc") sorted.reverse();
-      setSortState((previous) =>
-        previous.map((value, i) => (index === i ? (value === "asc" ? "desc" : "asc") : value)),
-      );
-      setSortIndex(index);
-      setRows(sorted);
+      setSort((previous) => {
+        const states = previous.data === data ? previous.states : columns.map(() => null);
+        return {
+          data,
+          index,
+          states: states.map((value, i) =>
+            i === index ? (value === "asc" ? "desc" : "asc") : value,
+          ),
+        };
+      });
     },
-    [rows, columns, sortState],
+    [data, columns],
   );
 
   const cellRenderer = useCallback(
     ({ columnIndex, key, rowIndex, style }) => {
       const isHeader = rowIndex === 0;
       const name = columns[columnIndex].name;
-      const value = gridData[rowIndex][name];
+      const value = isHeader ? name : rows[rowIndex - 1]?.[name];
       const base = {
         ...style,
         borderBottom: `1px solid ${CELL_BORDER}`,
@@ -63,8 +60,7 @@ const GridView = memo(({ data = [], dataId }) => {
         paddingBottom: 3,
         overflow: "hidden",
       };
-      const cellStyle =
-        name === "color" ? { ...base, backgroundColor: gridData[rowIndex][name] } : base;
+      const cellStyle = name === "color" && !isHeader ? { ...base, backgroundColor: value } : base;
       if (isHeader) {
         return (
           <Flex
@@ -105,7 +101,7 @@ const GridView = memo(({ data = [], dataId }) => {
         </Flex>
       );
     },
-    [columns, gridData, sortState, sortIndex, onSort],
+    [columns, rows, sortState, sortIndex, onSort],
   );
 
   return (
@@ -126,7 +122,7 @@ const GridView = memo(({ data = [], dataId }) => {
             columnCount={columns.length}
             columnWidth={200}
             height={height}
-            rowCount={gridData.length}
+            rowCount={rows.length + 1}
             rowHeight={25}
             width={width}
           />

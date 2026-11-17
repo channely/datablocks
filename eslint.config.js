@@ -5,7 +5,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 
 export default [
   {
-    ignores: ["dist/**", "node_modules/**", ".rea/**", "public/**"],
+    ignores: ["dist/**", "node_modules/**", ".rea/**", "public/**", "tmp/**"],
   },
   js.configs.recommended,
   {
@@ -34,9 +34,9 @@ export default [
     },
   },
   {
-    files: ["vite.config.js", "eslint.config.js"],
+    files: ["vite.config.js", "eslint.config.js", "scripts/**/*.mjs"],
     languageOptions: {
-      globals: { ...globals.node },
+      globals: { ...globals.node, ...globals.browser },
     },
   },
 ];

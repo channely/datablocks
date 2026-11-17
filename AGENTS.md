@@ -38,8 +38,15 @@ Node 22 is required (see `.nvmrc`).
 
 1. **Data pointers.** A node stores `data.current` as an ID returned by
    `dataStore.set(...)`. Resolve it with `useData(id)` (or `dataStore.get`). Never store raw
-   datasets in the store. `addNode` and `updateNodeData` already convert `current` values to
-   IDs; use them instead of mutating nodes directly.
+   datasets in the store, including in other node data fields (no exceptions; Merge derives its
+   result from its inputs). `addNode` and `updateNodeData` already convert `current` values to
+   IDs; use them instead of mutating nodes directly. Datasets are immutable: derive new
+   arrays/rows instead of editing inputs in place (`.sort()` on a copy, spread rows). Reference
+   identity drives three mechanisms: `updateNodeData` skips a `current` that is the same value
+   the node already holds (`dataStore.isSameValue`), column/geo-row caches in `lib/types.js` are
+   `WeakMap`s keyed by the dataset, and unreferenced DataStore entries are released by the
+   store's coalesced GC (`scheduleDataGc` → `dataStore.retainOnly`). A block that mutates and
+   republishes the same array will therefore not propagate; publish a copy.
 2. **Node wrappers.** Blocks are wrapped with `withNodeWrapper`; it resolves `current`, computes
    the detected type, and renders handles, summary, and the remove button. Keep the `type`
    passed to React Flow identical to the registry key.
@@ -58,15 +65,17 @@ Node 22 is required (see `.nvmrc`).
    `index.html` via `%BASE_URL%`). The app is deployed at `/datablocks/`.
 7. **Visual parity.** The Chakra theme and React Flow CSS are tuned to match the reference
    demo. Avoid restyling shared primitives unless the task explicitly asks for it.
-8. **Persistence schema.** Flow documents are versioned (`FLOW_VERSION` in
+8. **Persistence schema.** Flow documents are versioned (`FLOW_VERSION` = 2 in
    `src/lib/flowSerialization.js`) and must go through `serializeFlow` / `deserializeFlow`.
-   Loading must rehydrate every `data.current` through `dataStore.set`; never write raw
-   datasets into serialized node data. localforage keys: `flow__settings`, `flow__index`,
-   `flow__<id>`, `flow__autosave`. Bump the version when the document shape changes and keep
-   the legacy `{ elements, x, y, zoom }` reader working.
-9. **Undo history.** History entries are `serializeFlow(...).elements` snapshots applied through
-   `deserializeFlow`, so payloads are pinned by reference and re-registered with `dataStore.set`
-   on restore. Record before every user-visible mutation (`addElement`, `updateNodeData`,
+   Datasets live in the top-level `payloads: [{ data }]` table, deduplicated by reference; node
+   data holds `current: { ref, type }`. Loading registers each payload once through
+   `dataStore.set(data, type)`; never write raw datasets into serialized node data.
+   localforage keys: `flow__settings`, `flow__index`, `flow__<id>`, `flow__autosave`. Bump the
+   version when the document shape changes and keep the v1 (`current: { data, type }`) and
+   legacy `{ elements, x, y, zoom }` readers working.
+9. **Undo history.** History entries are `{ elements, payloads }` taken from `serializeFlow(...)`
+   and applied through `deserializeFlow`, so payloads are pinned by reference and re-registered
+   with `dataStore.set` on restore. Record before every user-visible mutation (`addElement`, `updateNodeData`,
    `removeElements`, drag end, layout commands). Writes derived from upstream data or from
    `ColumnSelect`'s auto-selection effect must pass `transient: true`, or loading a flow will
    create a phantom history step. `applyFlow`, `newFlow`, and import clear the history.
@@ -85,7 +94,10 @@ Node 22 is required (see `.nvmrc`).
 For any UI/block change:
 
 1. `npm run lint && npm run build`.
-2. Load the introduction flow (`Help → Introduction Flow` or terminal `intro`).
+2. Load the introduction flow (`Help → Introduction Flow` or terminal `intro`). The terminal
+   `stats` command prints node/edge/DataStore counts, history depth, timings, and cache
+   counters; for performance work run `node scripts/make-bench-flow.mjs` once, then
+   `npm run build && node scripts/bench.mjs <label>` and compare `tmp/bench-<label>.json`.
 3. Select the affected node; confirm the data output (table/JSON/map/chart) renders.
 4. Exercise the disconnected state and an invalid connection.
 5. Save/restore or reload once to ensure no crash from missing `data.current`.

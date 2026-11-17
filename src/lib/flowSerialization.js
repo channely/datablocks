@@ -1,28 +1,37 @@
 /**
  * Flow (de)serialization and validation.
  *
- * A saved flow is a self-contained JSON document:
+ * A saved flow is a self-contained JSON document (version 2):
  *
  * {
- *   version: 1,
+ *   version: 2,
  *   id: "flow__<nanoid>",
  *   title: "Untitled flow",
  *   createdAt: "<ISO>",
  *   updatedAt: "<ISO>",
- *   elements: [node | edge, ...],
+ *   elements: [node | edge, ...],      // node.data.current = { ref: <payload index>, type }
+ *   payloads: [{ data }, ...],         // each distinct value once, deduplicated by reference
  *   viewport: { x, y, zoom }
  * }
  *
  * Nodes never store raw datasets; `data.current` is a DataStore id at runtime. On the way out it
- * is replaced with `{ data, type }`, and `deserializeFlow` re-inserts that payload through
- * `dataStore.set`, which returns a fresh id. Files produced by the reference demo use the older
- * `{ elements, x, y, zoom }` shape; both are accepted here.
+ * becomes a reference into `payloads`, so pass-through blocks that forward the same dataset do
+ * not duplicate it. `deserializeFlow` re-inserts each payload once through `dataStore.set`.
+ *
+ * Older documents are still read: version 1 stored `current: { data, type }` inline, and files
+ * produced by the reference demo use the `{ elements, x, y, zoom }` shape with raw values.
  */
 import { isEdge, isNode } from "react-flow-renderer";
 import cloneDeep from "lodash-es/cloneDeep";
 import dataStore from "./dataStore";
 
-export const FLOW_VERSION = 1;
+export const FLOW_VERSION = 2;
+
+/**
+ * Fields older Merge nodes wrote into node data (raw input rows and a derived result). Merge now
+ * derives everything from its inputs, so these are dropped on load.
+ */
+const LEGACY_MERGE_FIELDS = ["baseData", "insertData", "data", "count", "mergeCount"];
 export const DEFAULT_TITLE = "Untitled flow";
 
 /** Read a viewport from either the current (`viewport`) or legacy (`x/y/zoom`) shape. */
@@ -38,12 +47,30 @@ export const readViewport = (flow) => {
   };
 };
 
-/** Convert runtime node data into its serialized form (pointers become `{ data, type }`). */
-const serializeNodeData = (data = {}) => {
+/**
+ * Collects payloads by object identity. Returns the index for `value`, adding it on first sight.
+ */
+const createPayloadTable = () => {
+  const payloads = [];
+  const indexByValue = new Map();
+  return {
+    payloads,
+    add(value) {
+      if (indexByValue.has(value)) return indexByValue.get(value);
+      const index = payloads.length;
+      payloads.push({ data: value });
+      indexByValue.set(value, index);
+      return index;
+    },
+  };
+};
+
+/** Convert runtime node data into its serialized form (pointers become `{ ref, type }`). */
+const serializeNodeData = (data = {}, table) => {
   const { current, ...rest } = data;
   if (typeof current === "string") {
     const stored = dataStore.get(current);
-    if (stored) rest.current = { data: stored.data, type: stored.type };
+    if (stored) rest.current = { ref: table.add(stored.data), type: stored.type };
   }
   return rest;
 };
@@ -52,11 +79,11 @@ const serializeNodeData = (data = {}) => {
  * Keep only portable fields. React Flow adds `width`, `height`, `selected`, `dragging`,
  * `handleBounds`, and internal positions on every node; persisting those makes files brittle.
  */
-const serializeNode = (node) => ({
+const serializeNode = (node, table) => ({
   id: node.id,
   type: node.type,
   position: { x: node.position?.x || 0, y: node.position?.y || 0 },
-  data: serializeNodeData(node.data),
+  data: serializeNodeData(node.data, table),
 });
 
 const serializeEdge = (edge) => {
@@ -94,18 +121,23 @@ export const serializeFlow = ({
   title,
   createdAt = null,
   updatedAt = null,
-}) => ({
-  version: FLOW_VERSION,
-  id,
-  title: (title || DEFAULT_TITLE).trim() || DEFAULT_TITLE,
-  createdAt,
-  updatedAt: updatedAt || new Date().toISOString(),
-  elements: [
-    ...nodes.filter(isNode).map(serializeNode),
+}) => {
+  const table = createPayloadTable();
+  const elements = [
+    ...nodes.filter(isNode).map((node) => serializeNode(node, table)),
     ...edges.filter(isEdge).map(serializeEdge),
-  ],
-  viewport: readViewport(viewport),
-});
+  ];
+  return {
+    version: FLOW_VERSION,
+    id,
+    title: (title || DEFAULT_TITLE).trim() || DEFAULT_TITLE,
+    createdAt,
+    updatedAt: updatedAt || new Date().toISOString(),
+    elements,
+    payloads: table.payloads,
+    viewport: readViewport(viewport),
+  };
+};
 
 /**
  * Structural validation. Throws an `Error` with a human-readable message so the caller can log
@@ -123,6 +155,10 @@ export const validateFlow = (flow) => {
       `Flow version ${flow.version} is newer than this app supports (version ${FLOW_VERSION}).`,
     );
   }
+  if (flow.payloads !== undefined && !Array.isArray(flow.payloads)) {
+    throw new Error("Flow file has an invalid `payloads` list.");
+  }
+  const payloadCount = Array.isArray(flow.payloads) ? flow.payloads.length : 0;
   const nodeIds = new Set();
   flow.elements.forEach((element) => {
     if (isNode(element)) {
@@ -131,6 +167,13 @@ export const validateFlow = (flow) => {
       }
       if (nodeIds.has(element.id)) {
         throw new Error(`Duplicate node id "${element.id}".`);
+      }
+      const current = element.data.current;
+      if (current && typeof current === "object" && "ref" in current) {
+        const ref = current.ref;
+        if (!Number.isInteger(ref) || ref < 0 || ref >= payloadCount) {
+          throw new Error(`Node "${element.id}" references a missing payload.`);
+        }
       }
       nodeIds.add(element.id);
     }
@@ -148,34 +191,58 @@ export const validateFlow = (flow) => {
   return flow;
 };
 
+/** Copy an element's structure. Payloads are not part of it and are never copied. */
+const copyNode = (node) => {
+  const { current, ...rest } = node.data || {};
+  const data = cloneDeep(rest);
+  if (current !== undefined) data.current = current;
+  if (node.type === "merge") LEGACY_MERGE_FIELDS.forEach((field) => delete data[field]);
+  return { ...node, position: { ...node.position }, data };
+};
+
+const copyEdge = (edge) => (edge.style ? { ...edge, style: { ...edge.style } } : { ...edge });
+
 /**
- * Validate and rehydrate a serialized flow. The returned object is a deep copy, so callers may
- * mutate it freely. Node data pointers become DataStore ids again.
+ * Validate and rehydrate a serialized flow. Structure (elements, node data) is copied so callers
+ * may mutate it; payloads are reused by reference and registered once each through
+ * `dataStore.set` with their recorded type, so undo and load do not deep-copy or re-detect
+ * datasets. Node data pointers become DataStore ids again.
  *
- * Accepts both the current document shape and the legacy `{ elements, x, y, zoom }` shape used
- * by `public/data/flows/*.json`.
+ * Accepts version 2 (`payloads` + `{ ref, type }`), version 1 (`{ data, type }` inline), and the
+ * legacy `{ elements, x, y, zoom }` shape used by `public/data/flows/*.json`.
  */
 export const deserializeFlow = (input) => {
   validateFlow(input);
-  const flow = cloneDeep(input);
-  flow.elements = flow.elements.map((element) => {
-    if (!isNode(element)) return element;
-    const current = element.data?.current;
-    if (current && typeof current === "object" && "data" in current) {
-      element.data.current = dataStore.set(current.data, current.type);
+  const payloads = Array.isArray(input.payloads) ? input.payloads : [];
+  const idByRef = new Map();
+  const idFor = (ref, type) => {
+    const key = `${ref}:${type || ""}`;
+    if (!idByRef.has(key)) idByRef.set(key, dataStore.set(payloads[ref]?.data, type));
+    return idByRef.get(key);
+  };
+  const elements = input.elements.map((element) => {
+    if (!isNode(element)) return copyEdge(element);
+    const node = copyNode(element);
+    const current = node.data.current;
+    if (current && typeof current === "object" && "ref" in current) {
+      node.data.current = idFor(current.ref, current.type);
+    } else if (current && typeof current === "object" && "data" in current) {
+      node.data.current = dataStore.set(current.data, current.type);
     } else if (current !== undefined && typeof current !== "string") {
       // Tolerate legacy files that stored the raw value instead of a { data, type } wrapper.
-      element.data.current = dataStore.set(current);
+      node.data.current = dataStore.set(current);
     }
-    return element;
+    return node;
   });
+  const { payloads: _payloads, ...rest } = input;
   return {
-    ...flow,
-    id: flow.id || null,
-    title: flow.title || DEFAULT_TITLE,
-    createdAt: flow.createdAt || null,
-    updatedAt: flow.updatedAt || null,
-    viewport: readViewport(flow),
+    ...rest,
+    elements,
+    id: input.id || null,
+    title: input.title || DEFAULT_TITLE,
+    createdAt: input.createdAt || null,
+    updatedAt: input.updatedAt || null,
+    viewport: readViewport(input),
   };
 };
 

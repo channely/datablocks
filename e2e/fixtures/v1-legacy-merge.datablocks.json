@@ -1,0 +1,219 @@
+{
+  "version": 1,
+  "id": "flow__legacy-merge",
+  "title": "Legacy v1 merge",
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "elements": [
+    {
+      "id": "base",
+      "type": "file",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "label": "File",
+        "group": "input",
+        "fileName": "base.json",
+        "current": {
+          "data": [
+            {
+              "key": "a",
+              "x": 1
+            },
+            {
+              "key": "b",
+              "x": 2
+            },
+            {
+              "key": "c",
+              "x": 3
+            }
+          ],
+          "type": "DATASET"
+        }
+      }
+    },
+    {
+      "id": "insert",
+      "type": "file",
+      "position": {
+        "x": 0,
+        "y": 300
+      },
+      "data": {
+        "label": "File",
+        "group": "input",
+        "fileName": "insert.json",
+        "current": {
+          "data": [
+            {
+              "key": "a",
+              "y": 10
+            },
+            {
+              "key": "c",
+              "y": 30
+            }
+          ],
+          "type": "DATASET"
+        }
+      }
+    },
+    {
+      "id": "merge",
+      "type": "merge",
+      "position": {
+        "x": 350,
+        "y": 100
+      },
+      "data": {
+        "label": "Merge",
+        "group": "transform",
+        "baseColumn": "key",
+        "insertColumn": "key",
+        "baseData": [
+          {
+            "key": "a",
+            "x": 1
+          },
+          {
+            "key": "b",
+            "x": 2
+          },
+          {
+            "key": "c",
+            "x": 3
+          }
+        ],
+        "insertData": [
+          {
+            "key": "a",
+            "y": 10
+          },
+          {
+            "key": "c",
+            "y": 30
+          }
+        ],
+        "mergeCount": 0,
+        "data": [
+          {
+            "key": "a",
+            "x": 1
+          },
+          {
+            "key": "b",
+            "x": 2
+          },
+          {
+            "key": "c",
+            "x": 3
+          }
+        ],
+        "current": {
+          "data": [
+            {
+              "key": "a",
+              "x": 1
+            },
+            {
+              "key": "b",
+              "x": 2
+            },
+            {
+              "key": "c",
+              "x": 3
+            }
+          ],
+          "type": "DATASET"
+        }
+      }
+    },
+    {
+      "id": "geo",
+      "type": "file",
+      "position": {
+        "x": 0,
+        "y": 600
+      },
+      "data": {
+        "label": "File",
+        "group": "input",
+        "fileName": "points.geojson",
+        "current": {
+          "data": {
+            "type": "FeatureCollection",
+            "features": [
+              {
+                "type": "Feature",
+                "properties": {
+                  "name": "p"
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [13.4, 52.5]
+                }
+              }
+            ]
+          },
+          "type": "GEOJSON"
+        }
+      }
+    },
+    {
+      "id": "chart",
+      "type": "barchart",
+      "position": {
+        "x": 350,
+        "y": 600
+      },
+      "data": {
+        "label": "Barchart",
+        "group": "visualization",
+        "isHorizontal": false,
+        "xColumn": "",
+        "yColumn": ""
+      }
+    },
+    {
+      "id": "lonely",
+      "type": "filter",
+      "position": {
+        "x": 700,
+        "y": 100
+      },
+      "data": {
+        "label": "Filter",
+        "group": "transform",
+        "column": "",
+        "conditionId": "1",
+        "conditionValue": ""
+      }
+    },
+    {
+      "id": "e1",
+      "source": "base",
+      "target": "merge",
+      "targetHandle": "merge-base"
+    },
+    {
+      "id": "e2",
+      "source": "insert",
+      "target": "merge",
+      "targetHandle": "merge-insert"
+    },
+    {
+      "id": "e3",
+      "source": "geo",
+      "target": "chart",
+      "targetHandle": "chart"
+    }
+  ],
+  "viewport": {
+    "x": 40,
+    "y": 40,
+    "zoom": 0.8
+  }
+}

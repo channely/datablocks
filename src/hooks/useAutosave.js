@@ -7,9 +7,15 @@
  * store action catches storage errors (for example quota exhaustion) and logs them to the
  * terminal, so editing is never blocked. Enable this only after a session restore has finished,
  * otherwise an empty canvas could overwrite the snapshot being restored.
+ *
+ * A pending write is flushed immediately when the page is hidden or unloaded (`pagehide`,
+ * `visibilitychange`), so closing the tab right after an edit does not lose it. Each write is
+ * announced to other tabs; since every tab shares the one autosave slot, a tab that hears
+ * another tab editing warns once in the terminal that the last write wins.
  */
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import useStore from "../store";
+import { createTabChannel } from "../lib/storageHealth";
 
 const DEFAULT_DELAY = 800;
 
@@ -31,12 +37,52 @@ const contentSignature = (state) =>
 export default function useAutosave({ enabled = true, delay = DEFAULT_DELAY } = {}) {
   const signature = useStore(contentSignature);
   const autosave = useStore((state) => state.autosave);
+  const addLogs = useStore((state) => state.addLogs);
+  const pending = useRef(null);
+  const channel = useRef(null);
 
   useEffect(() => {
     if (!enabled) return undefined;
-    const timer = setTimeout(() => {
-      autosave().catch(() => {});
-    }, delay);
-    return () => clearTimeout(timer);
+    channel.current = createTabChannel(() =>
+      addLogs({
+        method: "warn",
+        data: [
+          "This flow editor is also open in another tab. Both tabs share one autosave, so the last write wins; close one of them to avoid losing edits.",
+        ],
+      }),
+    );
+    return () => {
+      channel.current?.close();
+      channel.current = null;
+    };
+  }, [enabled, addLogs]);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const write = () => {
+      pending.current = null;
+      autosave()
+        .then((flow) => {
+          if (flow) channel.current?.announce();
+        })
+        .catch(() => {});
+    };
+    pending.current = setTimeout(write, delay);
+    const flush = () => {
+      if (pending.current === null) return;
+      clearTimeout(pending.current);
+      write();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearTimeout(pending.current);
+      pending.current = null;
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [autosave, delay, enabled, signature]);
 }

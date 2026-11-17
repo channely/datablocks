@@ -52,6 +52,29 @@ every layout or selection change. IDs are created in `addNode` and `updateNodeDa
 `deserializeFlow` in `src/lib/flowSerialization.js` rehydrates IDs (through `dataStore.set`) when
 a flow is loaded from JSON.
 
+### Data lifecycle
+
+Datasets are treated as **immutable**: blocks derive new arrays/objects instead of editing their
+input in place. That makes reference identity meaningful and enables three mechanisms:
+
+1. **Same-reference skip.** `updateNodeData` compares an incoming `current` with the value the
+   node already points to (`dataStore.isSameValue`, which checks the original reference passed
+   to `set` as well as the sanitized copy). A pass-through block that republishes the same
+   dataset creates no new id and no store write, so downstream blocks do not recompute.
+2. **Reference caches.** `getColumns`, `getColumnNames`, and `geoToRows` (`src/lib/types.js`)
+   memoize by object identity in `WeakMap`s, so the column scan of a large dataset happens once
+   no matter how many components ask. `stats` → `counters.columnScan` counts cache misses.
+3. **Garbage collection.** The store schedules `collectData` (coalesced with `setTimeout(0)`)
+   after `updateNodeData` replaces a pointer and after load, new flow, `setElements`, removal,
+   and undo/redo. It keeps the ids referenced by `nodes[].data.current` and releases everything
+   else with `dataStore.retainOnly`. Undo history stores payloads by reference (not ids), so
+   collected entries are re-registered on restore.
+
+The `stats` terminal command prints node/edge counts, DataStore size, history depth, the last
+timing of `import`/`serialize`/`autosave`/`undo`/`redo`/`export` (`performance.measure` entries
+named `db:<name>`, see `src/lib/perf.js`), and the counters above. `scripts/bench.mjs` uses it
+to benchmark a generated 28-node / 20k-row flow (`scripts/make-bench-flow.mjs`).
+
 ### Edges
 
 Edges connect a source node to a target node. Most blocks have a single input, so the target
@@ -99,8 +122,9 @@ from the selected value's detected type.
 4. React re-renders the affected node, downstream consumers, and the output panel if the node
    is selected.
 
-Blocks that only compute when the user clicks **Run** (Filter, Slice, Merge, Rename Columns)
-call `updateNodeData` in their handlers instead; their result still propagates the same way.
+Blocks that only compute when the user clicks **Run** (Filter, Slice, Rename Columns) call
+`updateNodeData` in their handlers instead; their result still propagates the same way. Merge
+derives its join from its two inputs and the selected columns and stores only the column names.
 
 ## Rendering the output
 
@@ -139,21 +163,28 @@ backend. `src/lib/flowSerialization.js` is the single schema boundary:
 
 ```js
 {
-  version: 1,
+  version: 2,
   id: "flow__<nanoid>",
   title: "Untitled flow",
   createdAt, updatedAt,          // ISO strings
   elements: [node | edge, ...],  // nodes keep id/type/position/data, edges keep connection fields
+  payloads: [{ data }, ...],     // each distinct dataset once
   viewport: { x, y, zoom },
 }
 ```
 
 Serialization strips transient React Flow fields (`width`, `height`, `selected`, …) and replaces
-each node's `data.current` id with `{ data, type }`, so the document is self-contained:
-`deserializeFlow` validates it (elements array, node/edge shape, edge endpoints) and pushes every
-value back into the DataStore, receiving a fresh id. Legacy documents with top-level `x`/`y`/`zoom`
-(the introduction flow) and versions up to `FLOW_VERSION` are accepted; newer versions are
-rejected.
+each node's `data.current` id with `{ ref, type }`, where `ref` indexes `payloads`. Payloads are
+deduplicated by object identity, so a chain of pass-through blocks stores its dataset once.
+`deserializeFlow` validates the document (elements array, node/edge shape, edge endpoints,
+payload references), copies the element structure, and registers each payload once through
+`dataStore.set(data, type)` without deep-cloning it or re-detecting its type. Merge nodes lose
+the raw-row fields older versions stored (`baseData`, `insertData`, `data`, `mergeCount`).
+
+Accepted inputs: version 2; version 1 (`current: { data, type }` inline); and legacy documents
+with top-level `x`/`y`/`zoom` (the introduction flow) that may store raw values. Versions newer
+than `FLOW_VERSION` are rejected. Autosave, library entries, export, and undo history all use
+this format; exporting an older library entry upgrades it to version 2.
 
 Storage keys:
 
@@ -170,6 +201,15 @@ once the React Flow viewport is initialized, and `useAutosave` debounces store c
 `autosave()` (skipped while restoring, in demo mode, or when an embedder supplies a flow). Write
 failures (for example quota exhaustion) are logged to the terminal and never interrupt editing.
 Import/export use the same schema; exported files are downloaded through `download()`.
+
+Hardening (`src/lib/storageHealth.js`, `src/hooks/useAutosave.js`):
+
+- A pending autosave is flushed on `pagehide` and `visibilitychange` → `hidden`.
+- After the first successful write the app calls `navigator.storage.persist()` once.
+- After each write it reads `navigator.storage.estimate()` and logs one terminal warning per
+  session once usage exceeds 80% of quota; the flow library footer shows the same estimate.
+- Every autosave is announced on the `datablocks-editor` BroadcastChannel. All tabs share
+  `flow__autosave`, so a tab that hears another tab editing warns once that the last write wins.
 
 ### Embedding
 

@@ -2,7 +2,6 @@
  * Geometry helpers used by geo blocks: bbox, centroid, spherical area, buffering, and TopoJSON
  * simplification. Coordinates are WGS84 lon/lat pairs; area is expressed in square meters.
  */
-import buffer from "@turf/buffer";
 import * as topojsonServer from "topojson-server";
 import * as topojsonClient from "topojson-client";
 import { presimplify, simplify, planarTriangleArea, quantile } from "topojson-simplify";
@@ -163,7 +162,11 @@ export const area = (geojson) => {
   return total;
 };
 
-export const bufferGeo = (geojson, distance, options) => buffer(geojson, distance, options);
+/** Buffers GeoJSON. `@turf/buffer` (with JSTS, ~600KB) is loaded on first use. */
+export const bufferGeo = async (geojson, distance, options) => {
+  const { default: buffer } = await import("@turf/buffer");
+  return buffer(geojson, distance, options);
+};
 
 export const geoToTopology = (geojson) => topojsonServer.topology({ data: geojson });
 
@@ -174,12 +177,20 @@ export const topologyToGeo = (topology, layer) =>
  * Simplifies GeoJSON or TopoJSON using a quantile weight between 0 (max simplification) and 1
  * (full detail). GeoJSON is converted to a topology first.
  */
-export const simplifyTopology = (geojsonOrTopology, weight) => {
+export const simplifyTopology = (geojsonOrTopology, weight) =>
+  simplifyPresimplified(presimplifyTopology(geojsonOrTopology), weight);
+
+/**
+ * The expensive half of `simplifyTopology` (topology build + triangle weights). Cache its result
+ * per input and call `simplifyPresimplified` when only the weight changes.
+ */
+export const presimplifyTopology = (geojsonOrTopology) => {
   const topology =
     geojsonOrTopology.type === "Topology" ? geojsonOrTopology : geoToTopology(geojsonOrTopology);
-  const presimplified = presimplify(topology, planarTriangleArea);
-  const threshold = quantile(presimplified, weight);
-  return simplify(presimplified, threshold);
+  return presimplify(topology, planarTriangleArea);
 };
+
+export const simplifyPresimplified = (presimplified, weight) =>
+  simplify(presimplified, quantile(presimplified, weight));
 
 export { isFeatureCollection };

@@ -8,6 +8,7 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Button } from "@chakra-ui/react";
 import MapGL, { Layer, Source, WebMercatorViewport } from "react-map-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
 import { TYPES, geoToRows } from "../lib/types";
 import { getBbox, topologyToGeo } from "../lib/geo";
 import GridView from "./GridView";
@@ -106,8 +107,11 @@ const GeoViewMapboxGL = memo(({ data }) => {
 GeoViewMapboxGL.displayName = "GeoViewMapboxGL";
 
 const GeoView = ({ data, type }) => {
-  const geojson =
-    type === TYPES.TOPOJSON ? topologyToGeo(data, Object.keys(data.objects)[0]) : data;
+  const geojson = useMemo(
+    () => (type === TYPES.TOPOJSON ? topologyToGeo(data, Object.keys(data.objects)[0]) : data),
+    [data, type],
+  );
+  const rows = useMemo(() => geoToRows(geojson), [geojson]);
   const [view, setView] = useState("geo");
 
   return (
@@ -124,7 +128,7 @@ const GeoView = ({ data, type }) => {
         </Button>
         <Button onClick={() => setView("data")}>Data View</Button>
       </Box>
-      {view === "geo" ? <GeoViewMapboxGL data={geojson} /> : <GridView data={geoToRows(geojson)} />}
+      {view === "geo" ? <GeoViewMapboxGL data={geojson} /> : <GridView data={rows} />}
     </Box>
   );
 };

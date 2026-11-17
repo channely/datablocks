@@ -4,10 +4,9 @@
  * Markdown is rendered from user input, so the converted HTML is sanitized with DOMPurify
  * before it reaches `dangerouslySetInnerHTML`. Keep that boundary if the renderer changes.
  */
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Button, Flex, Textarea } from "@chakra-ui/react";
 import { min, max, mean, median, sum } from "d3-array";
-import { Converter } from "showdown";
 import DOMPurify from "dompurify";
 import useStore from "../store";
 import useInputData from "../hooks/useInputData";
@@ -29,13 +28,24 @@ const STATS = {
 };
 
 const StatsTable = ({ column, data }) => {
-  if (!data || !column) return null;
+  // Five full passes over the dataset; recompute only when the data or column changes.
+  const values = useMemo(
+    () =>
+      data && column
+        ? Object.entries(STATS).map(([name, fn]) => [
+            name,
+            Number.parseFloat(fn(data, column)).toFixed(2),
+          ])
+        : null,
+    [data, column],
+  );
+  if (!values) return null;
   return (
     <Box>
-      {Object.entries(STATS).map(([name, fn]) => (
+      {values.map(([name, value]) => (
         <Flex justifyContent="space-between" py={2} key={name}>
           <Box pr={2}>{name}</Box>
-          <Box fontWeight="bold">{Number.parseFloat(fn(data, column)).toFixed(2)}</Box>
+          <Box fontWeight="bold">{value}</Box>
         </Flex>
       ))}
     </Box>
@@ -90,12 +100,21 @@ const MARKDOWN_STYLES = {
 
 const HOVER_STYLES = { ".toggle-wrapper": { display: "flex" } };
 
-const converter = new Converter({
+const SHOWDOWN_OPTIONS = {
   tables: true,
   simplifiedAutoLink: true,
   strikethrough: true,
   tasklists: true,
-});
+};
+
+let converterPromise = null;
+/** Showdown is loaded the first time a Markdown node previews, keeping it off the first load. */
+const loadConverter = () => {
+  if (!converterPromise) {
+    converterPromise = import("showdown").then(({ Converter }) => new Converter(SHOWDOWN_OPTIONS));
+  }
+  return converterPromise;
+};
 
 /** Sanitizes the HTML produced by Showdown; markdown authors are untrusted input. */
 export const sanitizeHtml = (html) => DOMPurify.sanitize(html);
@@ -116,10 +135,17 @@ export const Markdown = ({ id, data }) => {
     [id, updateNodeData],
   );
 
-  const html = useMemo(
-    () => (write ? null : sanitizeHtml(converter.makeHtml(inputValue))),
-    [inputValue, write],
-  );
+  const [html, setHtml] = useState("");
+  useEffect(() => {
+    if (write) return undefined;
+    let cancelled = false;
+    loadConverter().then((converter) => {
+      if (!cancelled) setHtml(sanitizeHtml(converter.makeHtml(inputValue || "")));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [inputValue, write]);
 
   const remove = useCallback(() => removeElements([{ id }]), [removeElements, id]);
 

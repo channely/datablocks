@@ -3,7 +3,7 @@
  * boundary so one failing block cannot crash the canvas. `withNodeWrapper` resolves the node's
  * DataStore pointer (`data.current`) and injects the detected type before rendering.
  */
-import React, { memo } from "react";
+import React, { memo, useMemo } from "react";
 import { Box, Flex, useTheme } from "@chakra-ui/react";
 import useStore from "../store";
 import useData from "../hooks/useData";
@@ -157,7 +157,11 @@ export const withNodeWrapper = (Component, props = {}) => {
     const { data, type, id } = nodeProps;
     const [current, currentType] = useData(data?.current);
     const theme = useTheme();
-    const nodeData = { ...data, current, type: currentType };
+    // Stable unless the node's own data or value changes, so the memoized children skip drags.
+    const nodeData = useMemo(
+      () => ({ ...data, current, type: currentType }),
+      [data, current, currentType],
+    );
     return (
       <NodeWrapper id={id} data={nodeData} type={type} color={theme.colors.block} {...props}>
         <Inner id={id} data={nodeData} color={theme.colors.block} />

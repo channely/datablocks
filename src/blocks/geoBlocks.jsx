@@ -15,10 +15,10 @@ import {
   bboxPolygon,
   bufferGeo,
   centroid as getCentroid,
-  geoToTopology,
   makeFeatureCollection,
   makePoint,
-  simplifyTopology,
+  presimplifyTopology,
+  simplifyPresimplified,
 } from "../lib/geo";
 import ColumnSelect from "../components/ColumnSelect";
 import { withNodeWrapper } from "../components/NodeWrapper";
@@ -129,20 +129,25 @@ const BufferComponent = ({ id, data }) => {
   }, [inputType, valid, addLogs]);
 
   const onDistanceChange = useCallback(
-    (event) => {
-      const result = bufferGeo(input, event.target.value, { units: "kilometers" });
-      updateNodeData({ id, data: { distance: event.target.value, current: result } });
-    },
-    [id, updateNodeData, input],
+    (event) => updateNodeData({ id, data: { distance: event.target.value } }),
+    [id, updateNodeData],
   );
 
+  // The buffered geometry is derived from the input and distance, so it is written transiently.
   useEffect(() => {
-    if (valid) {
-      const result = bufferGeo(input, distance, { units: "kilometers" });
-      updateNodeData({ id, data: { current: result } });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, input, valid, updateNodeData]);
+    if (!valid) return undefined;
+    let cancelled = false;
+    bufferGeo(input, distance, { units: "kilometers" })
+      .then((result) => {
+        if (!cancelled) updateNodeData({ id, data: { current: result }, transient: true });
+      })
+      .catch((error) => {
+        if (!cancelled) addLogs({ method: "error", data: ["Buffer failed.", error.message] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, input, valid, distance, updateNodeData, addLogs]);
 
   return (
     <Box p={2} minWidth={200}>
@@ -173,33 +178,34 @@ export const Buffer = withNodeWrapper(BufferComponent);
 
 const SimplifyComponent = ({ id, data }) => {
   const { sliderValue } = data;
-  const [input, inputType, valid] = useInputData(id, [TYPES.GEOJSON, TYPES.TOPOJSON]);
+  const [input, , valid] = useInputData(id, [TYPES.GEOJSON, TYPES.TOPOJSON]);
   const addLogs = useStore((state) => state.addLogs);
   const updateNodeData = useStore((state) => state.updateNodeData);
 
   const scale = scalePow().exponent(5).domain([1e-4, 1]).range([1e-4, 1]);
   const weight = sliderValue < 1e-4 ? 0 : scale(sliderValue);
 
+  // Building the topology is the expensive step; it depends only on the input, so dragging the
+  // slider reruns just the quantile + simplify pass.
   const presimplified = useMemo(() => {
     if (!valid || !input) return null;
     try {
-      const topology = inputType === TYPES.TOPOJSON ? input : geoToTopology(input);
-      return simplifyTopology(topology, weight);
+      return presimplifyTopology(input);
     } catch (error) {
       addLogs({ method: "error", data: [error.message] });
       return null;
     }
-  }, [input, inputType, valid, addLogs, weight]);
+  }, [input, valid, addLogs]);
 
   const result = useMemo(() => {
     if (!presimplified) return null;
     try {
-      return presimplified;
+      return simplifyPresimplified(presimplified, weight);
     } catch (error) {
       addLogs({ method: "error", data: [error.message] });
       return null;
     }
-  }, [addLogs, presimplified]);
+  }, [addLogs, presimplified, weight]);
 
   const onSliderChange = useCallback(
     (value) => updateNodeData({ id, data: { sliderValue: value } }),

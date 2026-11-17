@@ -4,6 +4,7 @@
  * `type` field.
  */
 import { countBy, flatten, toPairs, sortBy, isDate } from "lodash-es";
+import { count } from "./perf";
 
 export const TYPES = {
   DATASET: "DATASET",
@@ -69,14 +70,25 @@ export const detect = (value) => {
   return TYPES.UNKNOWN;
 };
 
+/*
+ * Datasets are treated as immutable: blocks derive new arrays instead of editing their input. That
+ * makes it safe to memoize the O(rows × columns) scans below by object identity.
+ */
+const rowsCache = new WeakMap();
+const columnsCache = new WeakMap();
+
 // convert a feature collection into rows
 export const geoToRows = (geojson) => {
   if (!isFeatureCollection(geojson)) return [];
-  return geojson.features.map((feature) => ({
+  const cached = rowsCache.get(geojson);
+  if (cached) return cached;
+  const rows = geojson.features.map((feature) => ({
     ...feature.properties,
     __geometry: JSON.stringify(feature.geometry),
     __type: feature.type,
   }));
+  rowsCache.set(geojson, rows);
+  return rows;
 };
 
 export const rowsToGeo = (rows) => {
@@ -100,25 +112,43 @@ export const columnValue = (row, name) => (row ? row[name] : undefined);
 /**
  * Lists columns for a dataset or feature collection, ordered by frequency of appearance.
  * Feature collections are flattened to rows first (properties plus `__geometry`/`__type`).
+ * Results are cached per input object; callers must not mutate the returned array.
  */
 export const getColumns = (input) => {
   if (!isDataset(input) && !isFeatureCollection(input)) return [];
+  const cached = columnsCache.get(input);
+  if (cached) return cached;
+  count("columnScan");
   const data = isFeatureCollection(input) ? geoToRows(input) : input;
   const keys = flatten(data.map((row) => Object.keys(row || {})));
   const counts = countBy(keys);
   const sorted = sortBy(toPairs(counts), (pair) => -pair[1]);
-  return sorted.map(([name]) => {
-    const firstValue = data
-      .map((row) => (row ? row[name] : undefined))
-      .find((value) => {
-        const t = detect(value);
-        return t !== TYPES.UNDEFINED && t !== TYPES.NULL;
-      });
+  const columns = sorted.map(([name]) => {
+    let firstValue;
+    for (let i = 0; i < data.length; i += 1) {
+      const value = data[i] ? data[i][name] : undefined;
+      if (value !== undefined && value !== null) {
+        firstValue = value;
+        break;
+      }
+    }
     return { name, type: detect(firstValue) };
   });
+  columnsCache.set(input, columns);
+  return columns;
 };
 
-export const getColumnNames = (input) => getColumns(input).map((column) => column.name);
+const namesCache = new WeakMap();
+/** Column names in `getColumns` order; the array is cached per input and must not be mutated. */
+export const getColumnNames = (input) => {
+  const columns = getColumns(input);
+  let names = namesCache.get(columns);
+  if (!names) {
+    names = columns.map((column) => column.name);
+    namesCache.set(columns, names);
+  }
+  return names;
+};
 
 export const getColumnType = (input, name) => {
   const column = getColumns(input).find((column) => column.name === name);

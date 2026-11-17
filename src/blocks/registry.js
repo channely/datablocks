@@ -106,10 +106,7 @@ const definitions = [
       label: "Merge",
       group: "transform",
       baseColumn: "",
-      baseData: null,
       insertColumn: "",
-      insertData: null,
-      mergeCount: 0,
     },
   },
   {

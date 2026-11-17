@@ -16,7 +16,7 @@
  * - `flow__<id>`       one flow document per saved flow
  * - `flow__autosave`   latest session snapshot; restored on reload, never listed in the library
  */
-import create from "zustand";
+import { create } from "zustand";
 import cloneDeep from "lodash-es/cloneDeep";
 import localforage from "localforage";
 import { nanoid } from "nanoid";

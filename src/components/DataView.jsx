@@ -99,7 +99,7 @@ const DataView = memo(({ data, type, dataId }) => {
   return (
     <>
       <OutputHeader data={data} type={type} />
-      <Box height="100%">
+      <Box height="100%" data-testid="output-view">
         <Suspense fallback={<div />}>
           <View data={data} type={type} dataId={dataId} />
         </Suspense>

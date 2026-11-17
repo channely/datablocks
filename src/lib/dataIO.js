@@ -47,9 +47,9 @@ export const FILE_TYPES = [
 
 export const getParserForFile = (file) => {
   const type = file.type;
-  const extension = file.name.match(/\.[0-9a-z]+$/i)[0];
+  const extension = file.name.match(/\.[0-9a-z]+$/i)?.[0];
   const byMime = FILE_TYPES.find((f) => f.mime === type);
-  const byExt = FILE_TYPES.find((f) => f.ext.includes(extension));
+  const byExt = extension ? FILE_TYPES.find((f) => f.ext.includes(extension)) : undefined;
   return byMime || byExt ? (byMime || byExt).parser : null;
 };
 

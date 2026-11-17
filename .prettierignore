@@ -6,3 +6,9 @@ public/fonts/
 .rea/
 .vite-dev.log
 tmp/
+coverage/
+playwright-report/
+test-results/
+
+# Deliberately malformed import fixture
+e2e/fixtures/garbage.json

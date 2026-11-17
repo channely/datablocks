@@ -4,6 +4,36 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions use
 [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] — 2026-11-17
+
+Automated tests as a safety net for the upcoming stack upgrade.
+
+### Added
+
+- Vitest unit tests for `src/lib` (types, dataStore, flowSerialization, exporters, geo, dataIO,
+  download, execution, perf, storageHealth) and the store (history merging, transient writes,
+  limits, persistence, autosave, session restore, quota errors, dataStore GC). Coverage gate:
+  80% lines for `src/lib` and `src/store`.
+- Playwright E2E suites (`e2e/`): smoke, blocks, undo/redo, persistence, import/export, and
+  `@perf` budgets on the benchmark flow. Selectors are `data-testid`/role only.
+- `ci.yml` for pull requests (format, lint, unit + coverage, build, E2E, report upload on
+  failure); the Pages deploy is now gated on unit and E2E tests.
+- `npm run check:lockfile` guard that rejects non-npmjs `resolved` URLs in the lockfile.
+- `data-testid` hooks for edges, handles, menu items, flow library rows, and column selects.
+
+### Fixed
+
+- The edge remove button (the circle at the midpoint) did not receive clicks because edges
+  only take pointer events on their stroke.
+- The flow library's Import button overlapped the modal close button.
+- Closing or reloading the tab right after an edit could lose it: the unload-time IndexedDB
+  write often never committed. A synchronous `localStorage` copy is now written and preferred
+  on restore when newer.
+- Flows passed in by an embedder (`setFlowData`) were not rehydrated through
+  `deserializeFlow`, and a missing flow crashed.
+- Starting a new flow while a previous load was still mounting could attach its stale edges.
+- Dropping a file without an extension threw instead of reporting an unsupported file.
+
 ## [1.3.0] — 2026-11-17
 
 Performance and data reliability for large flows (measured on a generated 28-node flow with a

@@ -9,7 +9,9 @@
  * otherwise an empty canvas could overwrite the snapshot being restored.
  *
  * A pending write is flushed immediately when the page is hidden or unloaded (`pagehide`,
- * `visibilitychange`), so closing the tab right after an edit does not lose it. Each write is
+ * `visibilitychange`), so closing the tab right after an edit does not lose it. Because an
+ * IndexedDB write started during unload may never commit, the flush also stores a synchronous
+ * `localStorage` copy (`flow__autosave_pending`) that `restoreSession` prefers when newer. Each write is
  * announced to other tabs; since every tab shares the one autosave slot, a tab that hears
  * another tab editing warns once in the terminal that the last write wins.
  */
@@ -37,6 +39,7 @@ const contentSignature = (state) =>
 export default function useAutosave({ enabled = true, delay = DEFAULT_DELAY } = {}) {
   const signature = useStore(contentSignature);
   const autosave = useStore((state) => state.autosave);
+  const flushAutosave = useStore((state) => state.flushAutosave);
   const addLogs = useStore((state) => state.addLogs);
   const pending = useRef(null);
   const channel = useRef(null);
@@ -68,10 +71,12 @@ export default function useAutosave({ enabled = true, delay = DEFAULT_DELAY } = 
         .catch(() => {});
     };
     pending.current = setTimeout(write, delay);
+    // IndexedDB may not commit during unload, so the flush also writes a synchronous copy.
     const flush = () => {
       if (pending.current === null) return;
       clearTimeout(pending.current);
-      write();
+      pending.current = null;
+      if (flushAutosave()) channel.current?.announce();
     };
     const onVisibility = () => {
       if (document.visibilityState === "hidden") flush();
@@ -84,5 +89,5 @@ export default function useAutosave({ enabled = true, delay = DEFAULT_DELAY } = 
       window.removeEventListener("pagehide", flush);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [autosave, delay, enabled, signature]);
+  }, [autosave, flushAutosave, delay, enabled, signature]);
 }

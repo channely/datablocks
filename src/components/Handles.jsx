@@ -44,6 +44,7 @@ const ConnectedHandle = ({ id, type, className, style, ...rest }) => {
       position={type === "source" ? Position.Right : Position.Left}
       className={className}
       isValidConnection={() => true}
+      data-testid={`${type}-handle`}
       style={{
         ...baseStyle,
         ...sideStyle,

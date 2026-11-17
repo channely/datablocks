@@ -48,6 +48,7 @@ const ColumnSelect = ({
           type="target"
           position={Position.Left}
           id={handleId}
+          data-testid="target-handle"
           style={{
             left: -24,
             height: 18,

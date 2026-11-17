@@ -27,6 +27,9 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
+      - name: Check lockfile registry
+        run: node scripts/check-lockfile.mjs
+
       - name: Install dependencies
         # npm 10 occasionally dies with "Exit handler never called" on large trees; retry once.
         run: npm ci --no-audit --no-fund || (sleep 5 && npm ci --no-audit --no-fund)
@@ -36,6 +39,26 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        # Gate the deploy on the same suite as CI (machine-dependent @perf budgets excluded).
+        run: npm run e2e -- --grep-invert @perf
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
 
       - name: Build
         run: npm run build

@@ -98,6 +98,26 @@ npm run format:check  # verify formatting
 npm run lint          # ESLint
 ```
 
+### Testing
+
+```bash
+npm test               # unit tests (Vitest + jsdom + fake-indexeddb)
+npm run test:watch     # watch mode
+npm run test:coverage  # coverage report; fails below 80% lines for src/lib and src/store
+npx playwright install chromium   # once, before the first E2E run
+npm run e2e            # end-to-end tests (Playwright, builds and serves on :4173/datablocks/)
+npm run e2e:ui         # Playwright UI mode
+npm run e2e -- --grep @perf       # performance budgets on the generated benchmark flow
+```
+
+Unit tests live next to the code (`src/**/*.test.js`) and cover the pure helpers, flow
+serialization, the data cache, and the store (history, persistence, garbage collection). E2E
+specs in `e2e/` drive the real build in Chromium: smoke, blocks, undo/redo, persistence,
+import/export, and performance. They select elements only by `data-testid` and role, and fail
+on any console error. Pull requests run formatting, lint, unit tests with coverage, the build,
+and E2E (without `@perf`) in [`ci.yml`](.github/workflows/ci.yml); the Pages deploy runs the
+same unit and E2E suites first.
+
 ### Configuration
 
 Copy `.env.example` to `.env` to override optional settings:

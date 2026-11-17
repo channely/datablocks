@@ -217,7 +217,8 @@ const FlowLibraryModal = () => {
       <ModalContent bg="bg.grey">
         <ModalCloseButton />
         <ModalBody py={4}>
-          <Flex alignItems="center" mb={3}>
+          {/* Right padding keeps the import button clear of the modal close button. */}
+          <Flex alignItems="center" mb={3} pr={8}>
             <Box fontSize="2xl" fontWeight="bold" flexGrow={1}>
               Your flows
             </Box>

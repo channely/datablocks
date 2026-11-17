@@ -43,6 +43,12 @@ let logId = 0;
 const SETTINGS_KEY = "flow__settings";
 const INDEX_KEY = "flow__index";
 const AUTOSAVE_KEY = "flow__autosave";
+/**
+ * Synchronous `localStorage` copy of the autosave, written when the page is hidden. IndexedDB
+ * transactions started during unload are not guaranteed to commit, so a reload right after an
+ * edit could otherwise restore an older session.
+ */
+const PENDING_AUTOSAVE_KEY = "flow__autosave_pending";
 const FLOW_PREFIX = "flow__";
 const DEFAULT_SETTINGS = { settingKey: false };
 
@@ -109,6 +115,33 @@ const splitFlow = (flow) => ({
   nodes: (flow.elements || []).filter(isNode),
   edges: (flow.elements || []).filter(isEdge),
 });
+
+const pendingStore = () => {
+  try {
+    return globalThis.localStorage || null;
+  } catch {
+    return null;
+  }
+};
+
+const readPendingAutosave = () => {
+  try {
+    const raw = pendingStore()?.getItem(PENDING_AUTOSAVE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const clearPendingAutosave = () => {
+  try {
+    pendingStore()?.removeItem(PENDING_AUTOSAVE_KEY);
+  } catch {
+    // Storage access can throw in locked-down browsers; the pending copy is best effort.
+  }
+};
+
+const isNewer = (a, b) => !b || String(a?.updatedAt || "") >= String(b.updatedAt || "");
 
 /** Serialize live editor state (or the React Flow instance snapshot) into a flow document. */
 const snapshot = (state, overrides = {}) => {
@@ -472,24 +505,32 @@ const flowStore = (set, get) => ({
       createdAt: created_at,
       updatedAt: updated_at,
     }),
+  /**
+   * Embedder entry point (`<App data={{ flow: [doc] }} />`). Accepts the same documents as
+   * import (v2, v1, legacy) and rehydrates every `current` through the dataStore.
+   */
   setFlowData: async (flow) => {
-    const nodes = (flow?.elements || []).filter(isNode);
-    const edges = (flow?.elements || []).filter(isEdge);
+    if (!flow) return;
+    let doc;
+    try {
+      doc = deserializeFlow({ elements: [], ...flow });
+    } catch (error) {
+      get().addLogs({ method: "error", data: ["The provided flow is invalid.", error.message] });
+      return;
+    }
+    const { nodes, edges } = splitFlow(doc);
     const state = get();
     state.setMeta(flow);
     state.setElements(nodes);
-    state.setFlowTransform({
-      x: flow?.viewport?.x || flow?.x || 0,
-      y: flow?.viewport?.y || flow?.y || 0,
-      zoom: flow?.viewport?.zoom || flow?.zoom || 1,
-    });
+    state.setFlowTransform(doc.viewport);
     state.selectNode(null);
     state.clearHistory();
     const generation = ++loadGeneration;
     afterNodesMount(() => {
       if (generation !== loadGeneration) return;
-      state.addEdges(edges);
+      useStore.getState().addEdges(edges);
     });
+    scheduleDataGc();
   },
   /** Load a static reference flow (for example `introduction`) from `public/data/flows`. */
   loadFlow: async (name) => {
@@ -546,6 +587,7 @@ const flowStore = (set, get) => ({
     try {
       const flow = snapshot(state, { updatedAt: now });
       await timed("autosave", () => storage.setItem(AUTOSAVE_KEY, flow));
+      clearPendingAutosave();
       afterStorageWrite();
       set({ saveStatus: "saved", lastSavedAt: now });
       return flow;
@@ -561,17 +603,48 @@ const flowStore = (set, get) => ({
       return null;
     }
   },
+  /**
+   * Page-hide flush: synchronously copies the snapshot to `localStorage` (best effort, it may
+   * exceed the quota for large flows) and starts the regular IndexedDB write.
+   */
+  flushAutosave: () => {
+    const state = get();
+    if (state.demoMode) return null;
+    const flow = snapshot(state, { updatedAt: new Date().toISOString() });
+    try {
+      pendingStore()?.setItem(PENDING_AUTOSAVE_KEY, JSON.stringify(flow));
+    } catch {
+      // Quota exceeded or storage unavailable: fall back to the asynchronous write alone.
+    }
+    storage.setItem(AUTOSAVE_KEY, flow).catch(() => {});
+    return flow;
+  },
   /** Restore the last session after a reload. Returns the restored flow or null. */
   restoreSession: async () => {
     let stored;
+    const pending = readPendingAutosave();
     try {
       stored = await storage.getItem(AUTOSAVE_KEY);
     } catch (error) {
-      get().addLogs({
-        method: "error",
-        data: ["Reading the saved session failed.", error.message],
-      });
-      return null;
+      if (!pending) {
+        get().addLogs({
+          method: "error",
+          data: ["Reading the saved session failed.", error.message],
+        });
+        return null;
+      }
+    }
+    if (pending) {
+      if (isNewer(pending, stored)) {
+        stored = pending;
+        // Move the page-hide copy into IndexedDB, then drop it.
+        storage
+          .setItem(AUTOSAVE_KEY, pending)
+          .then(clearPendingAutosave)
+          .catch(() => {});
+      } else {
+        clearPendingAutosave();
+      }
     }
     if (!stored) return null;
     try {
@@ -583,6 +656,7 @@ const flowStore = (set, get) => ({
       return flow;
     } catch (error) {
       // Drop the unreadable snapshot so the next reload starts clean instead of failing again.
+      clearPendingAutosave();
       await storage.removeItem(AUTOSAVE_KEY).catch(() => {});
       get().addLogs({
         method: "error",
@@ -645,6 +719,8 @@ const flowStore = (set, get) => ({
   },
   /** Start an empty flow. The previous canvas remains in the autosave until overwritten. */
   newFlow: () => {
+    // Drop edges still waiting for a previous load's nodes to mount.
+    loadGeneration += 1;
     set({
       id: null,
       title: DEFAULT_TITLE,

@@ -764,6 +764,7 @@ const JsComponent = ({ id, data }) => {
         id={handleA}
         className="js-handle"
         data-label="a"
+        data-testid="target-handle"
         style={{ top: 50, left: -22, height: 20, width: 20 }}
       />
       <Handle
@@ -772,6 +773,7 @@ const JsComponent = ({ id, data }) => {
         id={handleB}
         className="js-handle"
         data-label="b"
+        data-testid="target-handle"
         style={{ top: 80, left: -22, height: 20, width: 20 }}
       />
       <CodeEditor

@@ -89,7 +89,9 @@ export const Flow = memo(() => {
           {
             stroke: "white",
           },
-        ".react-flow__edge .react-flow__edge-label": { cursor: "pointer" },
+        // Edges only take pointer events on their stroke (`visibleStroke`); the label's remove
+        // button needs its whole fill to be clickable.
+        ".react-flow__edge .react-flow__edge-label": { cursor: "pointer", pointerEvents: "all" },
         ".react-flow__edge .react-flow__edge-text": {
           fontSize: "20px",
           textAnchor: "middle",

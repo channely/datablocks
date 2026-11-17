@@ -46,8 +46,20 @@ const Edge = ({
         d={edgePath}
         markerEnd={markerEnd}
       />
-      <path strokeWidth={16} fill="none" strokeOpacity={0} d={edgePath} />
-      <g transform={`translate(${edgeCenterX} ${edgeCenterY})`} className="react-flow__edge-label">
+      <path
+        strokeWidth={16}
+        fill="none"
+        strokeOpacity={0}
+        d={edgePath}
+        data-testid="edge-path"
+        data-edge-id={id}
+      />
+      <g
+        transform={`translate(${edgeCenterX} ${edgeCenterY})`}
+        className="react-flow__edge-label"
+        data-testid="edge"
+        data-edge-id={id}
+      >
         <circle
           width={26}
           cx={0}
@@ -55,8 +67,9 @@ const Edge = ({
           r={13}
           className="react-flow__edge-textbg"
           onClick={remove}
+          data-testid="edge-remove"
         />
-        <text x={0} y={0} className="react-flow__edge-text" dy="0.3em">
+        <text x={0} y={0} className="react-flow__edge-text" dy="0.3em" data-testid="edge-label">
           {label}
         </text>
       </g>

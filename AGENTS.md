@@ -13,6 +13,10 @@ npm run preview        # serve the production build
 npm run lint           # ESLint (flat config)
 npm run format         # Prettier write
 npm run format:check   # Prettier check (CI)
+npm test               # Vitest unit tests (src/**/*.test.js)
+npm run test:coverage  # unit tests + coverage gate (src/lib, src/store lines >= 80%)
+npm run e2e            # Playwright end-to-end tests against build + preview (:4173)
+npm run check:lockfile # every package-lock.json URL must point at registry.npmjs.org
 ```
 
 Node 22 is required (see `.nvmrc`).
@@ -70,7 +74,10 @@ Node 22 is required (see `.nvmrc`).
    Datasets live in the top-level `payloads: [{ data }]` table, deduplicated by reference; node
    data holds `current: { ref, type }`. Loading registers each payload once through
    `dataStore.set(data, type)`; never write raw datasets into serialized node data.
-   localforage keys: `flow__settings`, `flow__index`, `flow__<id>`, `flow__autosave`. Bump the
+   localforage keys: `flow__settings`, `flow__index`, `flow__<id>`, `flow__autosave`. A
+   synchronous `localStorage` copy, `flow__autosave_pending`, is written when the page is hidden
+   or unloaded (IndexedDB writes during unload may never commit); `restoreSession` prefers it
+   when newer, moves it into IndexedDB, and clears it. Bump the
    version when the document shape changes and keep the v1 (`current: { data, type }`) and
    legacy `{ elements, x, y, zoom }` readers working.
 9. **Undo history.** History entries are `{ elements, payloads }` taken from `serializeFlow(...)`
@@ -93,7 +100,9 @@ Node 22 is required (see `.nvmrc`).
 
 For any UI/block change:
 
-1. `npm run lint && npm run build`.
+1. `npm run lint && npm test && npm run build && npm run e2e`. E2E selectors use only
+   `data-testid` and roles; keep existing test ids stable and add new ones instead of
+   matching on text or library class names.
 2. Load the introduction flow (`Help → Introduction Flow` or terminal `intro`). The terminal
    `stats` command prints node/edge/DataStore counts, history depth, timings, and cache
    counters; for performance work run `node scripts/make-bench-flow.mjs` once, then

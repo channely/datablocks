@@ -5,7 +5,16 @@ import reactHooks from "eslint-plugin-react-hooks";
 
 export default [
   {
-    ignores: ["dist/**", "node_modules/**", ".rea/**", "public/**", "tmp/**"],
+    ignores: [
+      "dist/**",
+      "node_modules/**",
+      ".rea/**",
+      "public/**",
+      "tmp/**",
+      "coverage/**",
+      "playwright-report/**",
+      "test-results/**",
+    ],
   },
   js.configs.recommended,
   {
@@ -34,9 +43,21 @@ export default [
     },
   },
   {
-    files: ["vite.config.js", "eslint.config.js", "scripts/**/*.mjs"],
+    files: [
+      "vite.config.js",
+      "vitest.config.js",
+      "playwright.config.js",
+      "eslint.config.js",
+      "scripts/**/*.mjs",
+      "e2e/**/*.js",
+    ],
     languageOptions: {
       globals: { ...globals.node, ...globals.browser },
     },
+  },
+  {
+    // Playwright fixtures receive a `use` callback that is not a React hook.
+    files: ["e2e/**/*.js"],
+    rules: { "react-hooks/rules-of-hooks": "off" },
   },
 ];
